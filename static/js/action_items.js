@@ -6,23 +6,45 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function fetchActionItems() {
+    const listElement = document.getElementById('action-items-list');
+    listElement.innerHTML = '<p>Loading action items...</p>'; // Show loading indicator
+
     fetch('/api/action_items')
-        .then(response => response.json())
+        .then(response => {
+             if (!response.ok) {
+                // Try to get error details from JSON response
+                return response.json().then(err => { 
+                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                }).catch(() => {
+                    // Fallback if error response is not JSON
+                     throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
-            const listElement = document.getElementById('action-items-list');
             listElement.innerHTML = ''; // Clear loading message
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 listElement.innerHTML = '<p>No action items found.</p>';
                 return;
             }
             data.forEach(item => {
                 const div = document.createElement('div');
-                div.innerHTML = `<strong>${item.email_subject}:</strong> ${item.action}`;
+                // Display action and source information
+                div.innerHTML = `<strong>Action:</strong> ${escapeHTML(item.action || 'N/A')}<br>
+                                 <small><em>Source: ${escapeHTML(item.source || 'Unknown')}</em></small>`;
                 listElement.appendChild(div);
             });
         })
         .catch(error => {
             console.error('Error fetching action items:', error);
-            document.getElementById('action-items-list').innerHTML = '<p>Error loading action items.</p>';
+            listElement.innerHTML = `<p class="error">Error loading action items: ${error.message}</p>`;
         });
+}
+
+// Basic HTML escaping function (can be shared in main.js later)
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
 } 
