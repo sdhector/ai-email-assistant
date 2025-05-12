@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Knowledge Base{% endblock %}
+
+{% block content %}
+<h1>Knowledge Base Management</h1>
+<textarea id="knowledge-content" rows="20" cols="80">
+    <!-- Knowledge base content loaded here -->
+</textarea>
+<br>
+<button id="save-knowledge-button">Save Knowledge</button>
+<div id="status-message"></div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/knowledge.js') }}"></script>
+{% endblock %} 

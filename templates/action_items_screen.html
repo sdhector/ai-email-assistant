@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Action Items{% endblock %}
+
+{% block content %}
+<h1>Action Items</h1>
+<div id="action-items-list">
+    <!-- Action items will be loaded here -->
+    <p>Loading action items...</p>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/action_items.js') }}"></script>
+{% endblock %} 

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AI Email Chatbot{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('ai_response_screen') }}">AI Response Screen</a>
+        <a href="{{ url_for('action_items_screen') }}">Action Items Screen</a>
+        <a href="{{ url_for('knowledge_screen') }}">Knowledge Base</a>
+    </nav>
+    <div class="container">
+        {% block content %}
+        <p>Welcome to the AI Email Chatbot!</p>
+        {% endblock %}
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html> 

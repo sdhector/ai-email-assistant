@@ -1,0 +1,6 @@
+Flask>=2.0
+# Add other dependencies here as we go, e.g.:
+# google-api-python-client
+# google-auth-oauthlib
+# google-auth-httplib2
+# openai (or other LLM provider) 

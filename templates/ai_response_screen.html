@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Response Screen{% endblock %}
+
+{% block content %}
+<h1>AI Response Screen</h1>
+<div class="response-container">
+    <div class="emails-panel">
+        <h2>Emails</h2>
+        <!-- Email list will be loaded here -->
+        <ul id="email-list"></ul>
+    </div>
+    <div class="ai-response-panel">
+        <h2>AI Proposed Response</h2>
+        <div id="selected-email-content"></div>
+        <textarea id="ai-response-area" rows="10" cols="50"></textarea>
+        <button id="approve-button">Approve & Send</button>
+        <div id="chatbot-interface">
+            <h3>Adjust Response</h3>
+            <input type="text" id="chatbot-input" placeholder="Your instructions...">
+            <button id="chatbot-submit">Submit</button>
+            <div id="chatbot-history"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/ai_response.js') }}"></script>
+{% endblock %} 
