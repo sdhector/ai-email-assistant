@@ -1,73 +1,179 @@
 import os
 import pickle
 import base64
+import json
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, abort
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 
-# --- Gmail API Setup ---
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']
-CREDENTIALS_FILE = 'credentials.json'
-TOKEN_PICKLE_FILE = 'token.pickle' # Using pickle for token storage
+# --- Flask App Configuration ---
+# Secret key is crucial for session management in web apps
+app.secret_key = os.getenv('FLASK_SECRET_KEY')
+if not app.secret_key:
+    print("CRITICAL ERROR: FLASK_SECRET_KEY not found in .env file. Sessions will not work.")
+    # Optionally, raise an error or exit
+    # raise ValueError("FLASK_SECRET_KEY must be set in .env")
 
-def get_gmail_service():
-    """Shows basic usage of the Gmail API.
-    Handles user authentication and returns the Gmail API service object.
-    """
-    creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists(TOKEN_PICKLE_FILE):
-        with open(TOKEN_PICKLE_FILE, 'rb') as token:
-            creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                print(f"Error refreshing token: {e}. Need to re-authenticate.")
-                # If refresh fails, force re-authentication
-                if os.path.exists(TOKEN_PICKLE_FILE):
-                    os.remove(TOKEN_PICKLE_FILE)
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
-        else:
-            if not os.path.exists(CREDENTIALS_FILE):
-                 raise FileNotFoundError(f"Credentials file not found at {CREDENTIALS_FILE}. Please download it from Google Cloud Console.")
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_FILE, SCOPES)
-            # Note: run_local_server will open a browser window for auth
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open(TOKEN_PICKLE_FILE, 'wb') as token:
-            pickle.dump(creds, token)
+# --- Gmail API Setup ---
+# Scopes remain the same
+# Update scopes to include the ones Google automatically adds (OIDC scopes)
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly', 
+    'https://www.googleapis.com/auth/gmail.send',
+    'openid',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile'
+]
+CREDENTIALS_FILE = 'credentials.json'
+# Redirect URI must match EXACTLY one specified in Google Cloud Console for Web App credentials
+# Make sure this is added to your Google Cloud Console credentials!
+REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/oauth2callback')
+
+def get_google_flow():
+    """Creates a Google OAuth Flow object for web application flow."""
+    if not os.path.exists(CREDENTIALS_FILE):
+        print(f"ERROR: Credentials file {CREDENTIALS_FILE} not found.")
+        raise FileNotFoundError(f"Credentials file not found: {CREDENTIALS_FILE}")
+    try:
+        # Load client secrets for web flow
+        flow = Flow.from_client_secrets_file(
+            CREDENTIALS_FILE, 
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+        return flow
+    except ValueError as ve:
+        print(f"ERROR: Invalid JSON format or structure in {CREDENTIALS_FILE}. {ve}")
+        raise ValueError(f"Invalid JSON in {CREDENTIALS_FILE}") from ve
+    except KeyError as ke:
+        print(f"ERROR: Missing key {ke} in {CREDENTIALS_FILE}. Ensure it's a valid OAuth Client ID JSON for a WEB application (e.g., contains 'web').")
+        raise KeyError(f"Missing key {ke} in {CREDENTIALS_FILE}") from ke
+    except Exception as e:
+        print(f"ERROR: Unexpected error creating OAuth flow from {CREDENTIALS_FILE}: {e}")
+        raise
+
+@app.route('/authorize')
+def authorize():
+    """Initiates the OAuth 2.0 authorization flow."""
+    try:
+        flow = get_google_flow()
+        # Generate the authorization URL with state for CSRF protection
+        authorization_url, state = flow.authorization_url(
+            access_type='offline', # Request refresh token
+            include_granted_scopes='true'
+        )
+        # Store the state in the session so we can verify it in the callback
+        session['oauth_state'] = state
+        print(f"Redirecting user to: {authorization_url}")
+        return redirect(authorization_url)
+    except Exception as e:
+        print(f"Error during authorization initiation: {e}")
+        return f"Failed to start authorization: {e}", 500
+
+@app.route('/oauth2callback')
+def oauth2callback():
+    """Handles the redirect from Google after user authorization."""
+    # Retrieve the state from the session for verification
+    state = session.get('oauth_state')
+    # Check if state is missing or doesn't match the state parameter from Google
+    if not state or state != request.args.get('state'):
+        print("Error: State mismatch. Possible CSRF attack.")
+        abort(400, description="State mismatch. Please try authorizing again.")
 
     try:
+        flow = get_google_flow()
+        # Exchange the authorization code for credentials
+        # Use the full URL from the request for fetch_token
+        flow.fetch_token(authorization_response=request.url)
+
+        # Store the credentials in the session
+        creds = flow.credentials
+        # Convert credentials to a dictionary for session storage
+        session['credentials'] = {
+            'token': creds.token,
+            'refresh_token': creds.refresh_token,
+            'token_uri': creds.token_uri,
+            'client_id': creds.client_id,
+            'client_secret': creds.client_secret,
+            'scopes': creds.scopes
+        }
+        print("OAuth callback successful, credentials stored in session.")
+        # Redirect back to the main application page
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Error during OAuth callback: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Failed to fetch token or store credentials: {e}", 500
+
+def get_credentials_from_session():
+    """Retrieves Google credentials from the session."""
+    if 'credentials' not in session:
+        return None
+    # Create Credentials object from session data
+    creds_dict = session['credentials']
+    # Important: Check for refresh token existence before assuming it can be refreshed
+    if not creds_dict.get('refresh_token'):
+         print("Warning: No refresh token found in session credentials.")
+         # Might need to re-authorize if access token expires
+         # For simplicity now, just return potentially short-lived creds
+         # Alternatively, clear session and force re-auth: 
+         # session.pop('credentials', None)
+         # return None
+
+    return Credentials(**creds_dict)
+
+def get_gmail_service():
+    """Builds the Gmail service object using credentials from the session."""
+    creds = get_credentials_from_session()
+    if not creds:
+        print("No valid credentials found in session.")
+        return None # Caller needs to handle this (e.g., redirect to /authorize)
+
+    try:
+        # Check if credentials need refreshing (and if refresh is possible)
+        if creds.expired and creds.refresh_token:
+            print("Credentials expired, attempting refresh...")
+            try:
+                creds.refresh(Request())
+                # Update session with refreshed credentials (important!)
+                session['credentials'] = {
+                    'token': creds.token,
+                    'refresh_token': creds.refresh_token,
+                    'token_uri': creds.token_uri,
+                    'client_id': creds.client_id,
+                    'client_secret': creds.client_secret,
+                    'scopes': creds.scopes
+                }
+                print("Credentials refreshed successfully.")
+            except Exception as e:
+                print(f"Error refreshing credentials: {e}. Clearing session credentials.")
+                # Clear invalid credentials from session and force re-auth
+                session.pop('credentials', None)
+                return None # Indicate refresh failure
+
+        # Build the service
         service = build('gmail', 'v1', credentials=creds)
-        print("Gmail service created successfully")
+        print("Gmail service created successfully using session credentials.")
         return service
     except HttpError as error:
-        print(f'An error occurred building the Gmail service: {error}')
-        # Potentially delete token.pickle if auth error persists
-        # if error.resp.status in [401, 403]:
-        #     if os.path.exists(TOKEN_PICKLE_FILE):
-        #         os.remove(TOKEN_PICKLE_FILE)
-        #         print("Removed potentially invalid token.pickle. Please restart.")
+        print(f'An HTTP error occurred building the Gmail service: {error}')
+        # Handle specific auth errors if needed
+        if error.resp.status in [401, 403]:
+             print("Authentication error encountered. Clearing session credentials.")
+             session.pop('credentials', None)
         return None
     except Exception as e:
         print(f'An unexpected error occurred building the Gmail service: {e}')
@@ -94,28 +200,57 @@ except Exception as e:
 
 @app.route('/')
 def index():
-    # Redirect to AI Response Screen by default for now
+    # Check if user is authenticated before rendering main page
+    if 'credentials' not in session:
+        # Optional: Redirect to a simpler login page or render index with login button
+        # For now, just redirect to authorize
+        print("User not authenticated, redirecting to /authorize")
+        # Render a simple login prompt page instead of auto-redirecting
+        return render_template('login.html') 
+        # return redirect(url_for('authorize'))
+    
+    # If authenticated, show the main app screen
     return render_template('ai_response_screen.html')
+
+# Add a logout route
+@app.route('/logout')
+def logout():
+    session.pop('credentials', None)
+    session.pop('oauth_state', None)
+    print("User logged out, session cleared.")
+    return redirect(url_for('index'))
+
+# Add login page template route (will create template next)
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
 
 @app.route('/ai-response')
 def ai_response_screen():
+    if 'credentials' not in session:
+        return redirect(url_for('login_page')) # Or authorize
     return render_template('ai_response_screen.html')
 
 @app.route('/action-items')
 def action_items_screen():
+    if 'credentials' not in session:
+         return redirect(url_for('login_page')) # Or authorize
     return render_template('action_items_screen.html')
 
 @app.route('/knowledge')
 def knowledge_screen():
+    if 'credentials' not in session:
+         return redirect(url_for('login_page')) # Or authorize
     return render_template('knowledge_screen.html')
 
-# --- API Routes ---
+# --- API Routes (Need Authentication Check) ---
 
 @app.route('/api/emails', methods=['GET'])
 def get_emails():
-    service = get_gmail_service()
+    service = get_gmail_service() # Will now use session credentials
     if not service:
-        return jsonify({"error": "Failed to authenticate or build Gmail service"}), 500
+        # Return 401 if not authenticated or service failed
+        return jsonify({"error": "Authentication required or failed to get Gmail service."}), 401 
 
     try:
         # Fetch N unread emails (or adjust query as needed)
@@ -148,6 +283,10 @@ def get_emails():
 
     except HttpError as error:
         print(f'An error occurred fetching emails: {error}')
+        # Check if it's an auth error again
+        if error.resp.status in [401, 403]:
+             session.pop('credentials', None) # Clear session creds on auth error
+             return jsonify({"error": f"Authentication error: {error}"}), 401
         return jsonify({"error": f"Gmail API error: {error}"}), 500
     except Exception as e:
         print(f'An unexpected error occurred fetching emails: {e}')
@@ -157,36 +296,57 @@ def get_emails():
 @app.route('/api/email_content', methods=['GET'])
 def get_email_content():
     """Fetches the full content of a specific email."""
+    service = get_gmail_service()
+    if not service:
+        return jsonify({"error": "Authentication required or failed to get Gmail service."}), 401
+    
     message_id = request.args.get('id')
     if not message_id:
         return jsonify({"error": "Missing message ID"}), 400
-
-    service = get_gmail_service()
-    if not service:
-        return jsonify({"error": "Failed to authenticate or build Gmail service"}), 500
 
     try:
         msg = service.users().messages().get(userId='me', id=message_id, format='full').execute()
         payload = msg.get('payload')
         parts = payload.get('parts', [])
-        body = ""
+        body_html = ""
+        body_plain = ""
 
-        if parts:
+        if parts: # Multipart email
             for part in parts:
-                if part.get('mimeType') == 'text/plain':
-                    data = part.get('body', {}).get('data')
-                    if data:
-                        body = base64.urlsafe_b64decode(data).decode('utf-8')
-                        break # Prefer plain text
-            # Fallback if no plain text part found
-            if not body and parts[0].get('body', {}).get('data'):
-                 data = parts[0].get('body', {}).get('data')
-                 body = base64.urlsafe_b64decode(data).decode('utf-8') # Might be HTML
+                mime_type = part.get('mimeType')
+                data = part.get('body', {}).get('data')
+                if data:
+                    decoded_data = base64.urlsafe_b64decode(data).decode('utf-8')
+                    if mime_type == 'text/plain':
+                        body_plain = decoded_data
+                    elif mime_type == 'text/html':
+                        body_html = decoded_data
+            
+            # If only one type was found, and we prefer HTML, use it for plain if plain is empty
+            if body_html and not body_plain:
+                # This is a simplification; true conversion from HTML to plain text is complex.
+                # For now, if only HTML exists, we'll send it as plain too, or leave plain empty.
+                # Consider a library for HTML-to-text if robust plain text is always needed.
+                pass # body_plain remains empty or you could assign a stripped version of HTML
+            elif body_plain and not body_html:
+                # If only plain text exists, we might want to signal that no HTML is available.
+                pass
 
-        # Handle cases where body is directly in payload (not multipart)
-        elif payload.get('body', {}).get('data'):
-             data = payload.get('body', {}).get('data')
-             body = base64.urlsafe_b64decode(data).decode('utf-8')
+        elif payload.get('body', {}).get('data'): # Non-multipart email
+            data = payload.get('body', {}).get('data')
+            content = base64.urlsafe_b64decode(data).decode('utf-8')
+            # Non-multipart emails might not specify mimeType in the same way,
+            # often they are plain text by default or the mimeType is in payload headers
+            payload_mime_type = payload.get('mimeType', 'text/plain') # Default to plain
+            if payload_mime_type == 'text/html':
+                body_html = content
+            else: # Includes 'text/plain' and other types we'll treat as plain
+                body_plain = content
+        
+        # Fallback: if both are empty, use snippet as plain text
+        if not body_html and not body_plain:
+            body_plain = msg.get('snippet', '')
+
 
         # Extract headers again for context if needed
         headers = payload.get('headers', [])
@@ -197,12 +357,16 @@ def get_email_content():
             "id": message_id,
             "subject": subject,
             "sender": sender,
-            "body": body,
+            "body_html": body_html,
+            "body_plain": body_plain,
             "snippet": msg.get('snippet', '')
         })
 
     except HttpError as error:
         print(f'An error occurred fetching email content: {error}')
+        if error.resp.status in [401, 403]:
+             session.pop('credentials', None)
+             return jsonify({"error": f"Authentication error: {error}"}), 401
         return jsonify({"error": f"Gmail API error: {error}"}), 500
     except Exception as e:
         print(f'An unexpected error occurred fetching email content: {e}')
@@ -211,6 +375,7 @@ def get_email_content():
 
 @app.route('/api/generate_response', methods=['POST'])
 def generate_response():
+    # No direct Gmail auth needed here, but check AI model
     if not gemini_model:
          return jsonify({"error": "Gemini AI not configured correctly."}), 500
 
@@ -224,6 +389,14 @@ def generate_response():
     try:
         # TODO: Load knowledge base content here if needed
         knowledge_context = "" # Placeholder
+        knowledge_file = os.path.join('knowledge', 'repository.md') 
+        if os.path.exists(knowledge_file):
+            try:
+                with open(knowledge_file, 'r', encoding='utf-8') as f:
+                    knowledge_context = f.read()
+                print("Loaded knowledge context for prompt.")
+            except Exception as e:
+                print(f"Warning: Could not read knowledge file {knowledge_file}: {e}")
 
         # Construct prompt for Gemini
         prompt = f"""You are an AI assistant helping a user respond to emails.
@@ -270,7 +443,7 @@ def generate_response():
 def send_email():
     service = get_gmail_service()
     if not service:
-        return jsonify({"error": "Failed to authenticate or build Gmail service"}), 500
+        return jsonify({"error": "Authentication required or failed to get Gmail service."}), 401
 
     recipient = request.json.get('recipient')
     subject = request.json.get('subject')
@@ -302,6 +475,9 @@ def send_email():
 
     except HttpError as error:
         print(f'An error occurred sending email: {error}')
+        if error.resp.status in [401, 403]:
+             session.pop('credentials', None)
+             return jsonify({"error": f"Authentication error: {error}"}), 401
         return jsonify({"error": f"Gmail API error: {error}"}), 500
     except Exception as e:
         print(f'An unexpected error occurred sending email: {e}')
@@ -312,24 +488,22 @@ def send_email():
 def get_action_items():
     service = get_gmail_service()
     if not service:
-        return jsonify({"error": "Failed to authenticate or build Gmail service"}), 500
+        return jsonify({"error": "Authentication required or failed to get Gmail service."}), 401
     if not gemini_model:
          return jsonify({"error": "Gemini AI not configured correctly."}), 500
 
     try:
-        # 1. Fetch recent/unread emails (similar to get_emails)
-        # For action items, might want to look at more than just 10 unread. Adjust query.
-        results = service.users().messages().list(userId='me', labelIds=['INBOX'], q='is:unread', maxResults=20).execute() # Example: 20 unread
+        # 1. Fetch recent/unread emails
+        results = service.users().messages().list(userId='me', labelIds=['INBOX'], q='is:unread', maxResults=20).execute() 
         messages_info = results.get('messages', [])
 
         if not messages_info:
-            return jsonify([]) # No relevant emails found
+            return jsonify([]) 
 
         emails_data = []
         print(f"Fetching content for {len(messages_info)} emails to find action items...")
         for msg_info in messages_info:
-             # Fetch basic content (snippet might be enough, or fetch full body if needed)
-             msg = service.users().messages().get(userId='me', id=msg_info['id'], format='full').execute() # Using full for now
+             msg = service.users().messages().get(userId='me', id=msg_info['id'], format='full').execute()
              payload = msg.get('payload')
              subject = next((h['value'] for h in payload.get('headers', []) if h['name'].lower() == 'subject'), 'No Subject')
              body = ""
@@ -339,26 +513,32 @@ def get_action_items():
                      if part.get('mimeType') == 'text/plain':
                          data = part.get('body', {}).get('data')
                          if data: body = base64.urlsafe_b64decode(data).decode('utf-8'); break
-             elif payload.get('body', {}).get('data'): # Non-multipart
+             elif payload.get('body', {}).get('data'):
                  data = payload.get('body', {}).get('data')
                  body = base64.urlsafe_b64decode(data).decode('utf-8')
 
-             if body or msg.get('snippet'): # Only process if there's content
+             if body or msg.get('snippet'):
                 emails_data.append({
                     "id": msg_info['id'],
                     "subject": subject,
-                    "content": body or msg.get('snippet', '') # Prefer full body if available
+                    "content": body or msg.get('snippet', '') 
                 })
 
         if not emails_data:
              return jsonify([])
 
-        # 2. Prepare prompt for Gemini to extract action items from multiple emails
-        # TODO: Load knowledge base content here if needed
-        knowledge_context = "" # Placeholder
+        # 2. Prepare prompt for Gemini
+        knowledge_context = "" 
+        knowledge_file = os.path.join('knowledge', 'repository.md') 
+        if os.path.exists(knowledge_file):
+            try:
+                with open(knowledge_file, 'r', encoding='utf-8') as f:
+                    knowledge_context = f.read()
+                print("Loaded knowledge context for action items.")
+            except Exception as e:
+                print(f"Warning: Could not read knowledge file {knowledge_file}: {e}")
 
-        # Create a single block of text containing relevant parts of emails
-        emails_text_block = "\\n\\n---\\n\\n".join([f"Email ID: {e['id']}\\nSubject: {e['subject']}\\nContent:\\n{e['content'][:1000]}..." # Limit length per email
+        emails_text_block = "\n\n---\n\n".join([f"Email ID: {e['id']}\nSubject: {e['subject']}\nContent:\n{e['content'][:1000]}..." 
                                                   for e in emails_data])
 
         prompt = f"""You are an AI assistant tasked with identifying actionable items from a list of emails.
@@ -391,15 +571,13 @@ def get_action_items():
 
         action_items_text = response.text
 
-        # 4. Parse the response (simple parsing for now)
+        # 4. Parse the response
         action_items_list = []
         if action_items_text.strip() and "no action items found" not in action_items_text.lower():
-            lines = action_items_text.strip().split('\\n')
+            lines = action_items_text.strip().split('\n')
             for line in lines:
                  if line.strip().lower().startswith("action:"):
-                     # Basic extraction, might need refinement based on Gemini's output format consistency
                      action_desc = line.replace("Action:", "").strip()
-                     # Try to extract source info if present
                      source_email = "Unknown Source"
                      if "(From Email Subject:" in action_desc:
                          source_email = action_desc[action_desc.find("(From Email Subject:"):]
@@ -411,20 +589,14 @@ def get_action_items():
                      action_items_list.append({
                          "action": action_desc,
                          "source": source_email
-                         # Potentially add back email_subject/id link if needed
                      })
-
-
-        # TODO: Replace placeholder with actual AI-extracted items
-        # placeholder_items = [
-        #     {"email_subject": "Meeting Request", "action": "Confirm attendance by EOD"},
-        #     {"email_subject": "Project Update", "action": "Review document and provide feedback"}
-        # ]
-        # return jsonify(placeholder_items)
         return jsonify(action_items_list)
 
     except HttpError as error:
         print(f'An error occurred fetching action items (Gmail): {error}')
+        if error.resp.status in [401, 403]:
+             session.pop('credentials', None)
+             return jsonify({"error": f"Authentication error: {error}"}), 401
         return jsonify({"error": f"Gmail API error: {error}"}), 500
     except Exception as e:
         print(f'An error occurred processing action items: {e}')
@@ -435,9 +607,12 @@ def get_action_items():
 
 @app.route('/api/knowledge', methods=['GET', 'POST'])
 def manage_knowledge():
+    # Knowledge API doesn't strictly need Gmail auth, but maybe useful to protect?
+    # For now, leaving it open, but consider adding session check if needed.
+    
     # TODO: Implement loading/saving knowledge repository data from .md files
     knowledge_dir = 'knowledge'
-    knowledge_file = os.path.join(knowledge_dir, 'repository.md') # Example file name
+    knowledge_file = os.path.join(knowledge_dir, 'repository.md') 
 
     if not os.path.exists(knowledge_dir):
         os.makedirs(knowledge_dir)
@@ -449,7 +624,7 @@ def manage_knowledge():
                     content = f.read()
                 return jsonify({"info": content})
             else:
-                return jsonify({"info": ""}) # Return empty if file doesn't exist
+                return jsonify({"info": ""}) 
         except Exception as e:
             print(f"Error reading knowledge file: {e}")
             return jsonify({"error": "Could not read knowledge file"}), 500
@@ -457,7 +632,7 @@ def manage_knowledge():
     elif request.method == 'POST':
         try:
             new_knowledge = request.json.get('data')
-            if new_knowledge is None: # Check if data is actually present
+            if new_knowledge is None: 
                  return jsonify({"error": "Missing 'data' in request body"}), 400
 
             with open(knowledge_file, 'w', encoding='utf-8') as f:
@@ -469,6 +644,11 @@ def manage_knowledge():
 
 
 if __name__ == '__main__':
-    # Ensure Flask runs in debug mode for development
-    # Use a proper WSGI server like Gunicorn or Waitress for production
-    app.run(debug=True, port=5000) # Specify port if needed 
+    # Ensure Redirect URI uses the correct protocol (http for local flask dev server)
+    # Important for OAuth flow without HTTPS setup locally
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
+    # Note: Use a proper WSGI server like Gunicorn or Waitress for production
+    # Specify host='0.0.0.0' to make accessible on network if needed, 
+    # but stick to 127.0.0.1 (default) for security unless required.
+    app.run(debug=True, port=5000) 
