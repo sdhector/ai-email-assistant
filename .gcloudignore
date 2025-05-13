@@ -1,0 +1,30 @@
+# Default .gcloudignore file:
+# See https://cloud.google.com/sdk/gcloud/reference/topic/gcloudignore for more information.
+
+# Version control files
+.git/
+.gitignore
+
+# Python bytecode and virtual environment files
+*.py[co]
+__pycache__/
+venv/
+*.egg-info/
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets and environment files that should not be deployed
+.env
+credentials.json
+credentials_desktop.json
+
+# Other local development artifacts
+*.db
+*.sqlite3
+
+# Mac specific
+.DS_Store 

@@ -1,0 +1,25 @@
+runtime: python311 # Or python312 if you prefer and it's available
+service: ai-email-assistant
+entrypoint: gunicorn -b :$PORT app:app
+
+instance_class: F1 # Standard instance class, good for starting
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1 # Adjust as needed for expected load
+  target_cpu_utilization: 0.65
+
+env_variables:
+  # This will be your App Engine service URL + /oauth2callback
+  GOOGLE_REDIRECT_URI: "https://ai-email-assistant-dot-personaldataassistant.appspot.com/oauth2callback"
+  # OAUTHLIB_INSECURE_TRANSPORT should NOT be set to '1' in production
+  # It defaults to requiring HTTPS, which App Engine provides.
+
+# Note: FLASK_SECRET_KEY and GEMINI_API_KEY are NOT set here.
+# They will be fetched from Google Secret Manager by app.py at runtime.
+
+# You might need to grant the App Engine service account permission
+# to access secrets in Secret Manager. This is typically done via IAM settings
+# for the App Engine default service account: 
+# <PROJECT_ID>@appspot.gserviceaccount.com
+# by giving it the "Secret Manager Secret Accessor" role. 

@@ -10,3 +10,5 @@ google-auth-httplib2>=0.1
 # openai>=1.0
 google-generativeai>=0.4 # For Gemini API
 python-dotenv>=0.19 
+gunicorn>=20.1.0 # For App Engine deployment
+google-cloud-secret-manager>=2.16.0 # For accessing secrets 

@@ -13,18 +13,76 @@ from dotenv import load_dotenv
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, abort
 
-# Load environment variables from .env file
-load_dotenv()
+# Attempt to import Google Secret Manager client
+try:
+    from google.cloud import secretmanager
+except ImportError:
+    secretmanager = None # Will be None if not in App Engine or google-cloud-secret-manager not installed
 
+# --- App Initialization & Configuration Loading ---
 app = Flask(__name__)
 
-# --- Flask App Configuration ---
-# Secret key is crucial for session management in web apps
-app.secret_key = os.getenv('FLASK_SECRET_KEY')
-if not app.secret_key:
-    print("CRITICAL ERROR: FLASK_SECRET_KEY not found in .env file. Sessions will not work.")
-    # Optionally, raise an error or exit
-    # raise ValueError("FLASK_SECRET_KEY must be set in .env")
+# Load environment variables from .env file for local development
+# In App Engine, these will be set by app.yaml or fetched from Secret Manager
+load_dotenv()
+
+# Function to access secrets from Google Secret Manager
+def access_secret_version(project_id, secret_id, version_id="latest"):
+    if not secretmanager:
+        print("Secret Manager client not available. Cannot fetch secrets.")
+        return None
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        response = client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        print(f"Error accessing secret {secret_id} from Secret Manager: {e}")
+        return None
+
+# Configure Flask secret key and Gemini API key
+flask_secret_key_val = None
+gemini_api_key_val = None
+
+if os.getenv('GAE_ENV') == 'standard': # Running in App Engine
+    print("Running in App Engine environment. Attempting to load secrets from Secret Manager.")
+    # Project ID for secrets (replace with your actual project ID where secrets are stored, if different from app's project)
+    # Using the project ID you provided: 872125090800
+    secrets_project_id = "872125090800" 
+    
+    flask_secret_key_val = access_secret_version(secrets_project_id, "FLASK_APP_SECRET_KEY")
+    gemini_api_key_val = access_secret_version(secrets_project_id, "GEMINI_API_KEY")
+
+    if not flask_secret_key_val:
+        print("CRITICAL ERROR: FLASK_APP_SECRET_KEY not found in Secret Manager for App Engine.")
+        # Potentially raise an error or exit if this is critical for startup
+    if not gemini_api_key_val:
+        print("Warning: GEMINI_API_KEY not found in Secret Manager for App Engine.")
+        # AI features might be disabled
+else: # Local development or other environments
+    print("Not in App Engine environment. Loading secrets from .env file.")
+    flask_secret_key_val = os.getenv('FLASK_SECRET_KEY')
+    gemini_api_key_val = os.getenv('GEMINI_API_KEY')
+
+    if not flask_secret_key_val:
+        print("CRITICAL ERROR: FLASK_SECRET_KEY not found in .env file. Sessions will not work.")
+    if not gemini_api_key_val:
+        print("Warning: GEMINI_API_KEY not found in .env file.")
+
+app.secret_key = flask_secret_key_val
+
+# --- Gemini AI Setup ---
+gemini_model = None
+if gemini_api_key_val:
+    try:
+        genai.configure(api_key=gemini_api_key_val)
+        gemini_model = genai.GenerativeModel('gemini-1.5-flash') 
+        print("Gemini AI configured successfully.")
+    except Exception as e:
+        print(f"Error configuring Gemini AI with fetched key: {e}")
+else:
+    print("Gemini API key not available. AI features may be limited or disabled.")
+
 
 # --- Gmail API Setup ---
 # Update scopes to include the ones Google automatically adds (OIDC scopes)
@@ -38,8 +96,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.profile'
 ]
 CREDENTIALS_FILE = 'credentials.json'
-# Redirect URI must match EXACTLY one specified in Google Cloud Console for Web App credentials
-# Make sure this is added to your Google Cloud Console credentials!
+# Redirect URI is now primarily controlled by app.yaml for GAE, 
+# but .env can override for local if GOOGLE_REDIRECT_URI is set there.
 REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/oauth2callback')
 
 def get_google_flow():
@@ -186,22 +244,6 @@ def get_gmail_service():
     except Exception as e:
         print(f'An unexpected error occurred building the Gmail service: {e}')
         return None
-
-
-# --- Gemini AI Setup ---
-try:
-    gemini_api_key = os.getenv('GEMINI_API_KEY')
-    if not gemini_api_key:
-        print("Warning: GEMINI_API_KEY not found in .env file.")
-        # Handle missing key scenario if needed, maybe disable AI features
-    else:
-        genai.configure(api_key=gemini_api_key)
-        # TODO: Select appropriate Gemini model later
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash') # Or another suitable model
-        print("Gemini AI configured successfully.")
-except Exception as e:
-    print(f"Error configuring Gemini AI: {e}")
-    gemini_model = None # Ensure model is None if setup fails
 
 
 # --- Flask Routes ---
