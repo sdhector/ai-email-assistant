@@ -11,8 +11,18 @@
         <ul id="email-list"></ul>
     </div>
     <div class="ai-response-panel">
+        <h2>Selected Email</h2>
+        <!-- Toggle button will be inserted here by JS if needed -->
+        <!-- From/Subject will be injected here by JS -->
+        <div id="selected-email-header"></div> 
+        
+        <!-- Container for email content views -->
+        <div id="email-content-view">
+            <iframe id="email-html-display" style="width: 100%; height: 300px; border: 1px solid #ccc;"></iframe>
+            <pre id="email-plain-display" style="white-space: pre-wrap; word-wrap: break-word; border: 1px solid #ccc; padding: 10px; display: none;"></pre>
+        </div>
+
         <h2>AI Proposed Response</h2>
-        <div id="selected-email-content"></div>
         <textarea id="ai-response-area" rows="10" cols="50"></textarea>
         <button id="approve-button">Approve & Send</button>
         <div id="chatbot-interface">

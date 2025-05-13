@@ -58,10 +58,32 @@ function fetchEmails() {
 function selectEmail(messageId) {
     console.log("Selected email ID:", messageId);
     // Clear previous content
-    document.getElementById('selected-email-content').innerHTML = 'Loading content...';
+    const emailHeaderDiv = document.getElementById('selected-email-header');
+    emailHeaderDiv.innerHTML = 'Loading content...'; // Clear and show loading in header
+
     document.getElementById('ai-response-area').value = 'Generating AI response...';
     document.getElementById('chatbot-history').innerHTML = ''; // Clear history
     currentEmail = null; // Reset current email
+
+    const htmlDisplayFrame = document.getElementById('email-html-display');
+    const plainDisplayPre = document.getElementById('email-plain-display');
+    htmlDisplayFrame.srcdoc = ''; // Clear iframe
+    htmlDisplayFrame.style.display = 'none';
+    plainDisplayPre.textContent = ''; // Clear pre
+    plainDisplayPre.style.display = 'none';
+    
+    let toggleButton = document.getElementById('toggle-email-view');
+    const emailContentContainer = document.getElementById('email-content-view'); // Parent of iframe/pre
+
+    if (!toggleButton) {
+        toggleButton = document.createElement('button');
+        toggleButton.id = 'toggle-email-view';
+        // Insert it before the email-content-view div
+        emailContentContainer.parentNode.insertBefore(toggleButton, emailContentContainer);
+        toggleButton.addEventListener('click', toggleEmailDisplay);
+    }
+    toggleButton.textContent = 'Show Raw Text'; // Reset button text
+    toggleButton.style.display = 'none'; // Hide initially
 
     // Highlight selected email (optional)
     document.querySelectorAll('#email-list li').forEach(li => {
@@ -81,21 +103,49 @@ function selectEmail(messageId) {
         })
         .then(emailData => {
             currentEmail = emailData; // Store details
-            // Display email content (sanitize potentially unsafe HTML if displaying directly)
-            const selectedContentDiv = document.getElementById('selected-email-content');
-            selectedContentDiv.innerHTML = `
-                <strong>From:</strong> ${escapeHTML(emailData.sender)}<br>
-                <strong>Subject:</strong> ${escapeHTML(emailData.subject)}<br>
-                <hr>
-                <pre>${escapeHTML(emailData.body)}</pre>
-            `;
+            
+            // Display From/Subject in the new header div
+            emailHeaderDiv.innerHTML = `<strong>From:</strong> ${escapeHTML(emailData.sender)}<br><strong>Subject:</strong> ${escapeHTML(emailData.subject)}<hr>`;
 
-            // Fetch initial AI response
-            getInitialResponse(emailData.body, emailData.subject);
+            const htmlDisplay = document.getElementById('email-html-display');
+            const plainDisplay = document.getElementById('email-plain-display');
+            const toggleBtn = document.getElementById('toggle-email-view');
+
+            if (emailData.body_html) {
+                htmlDisplay.srcdoc = emailData.body_html;
+                htmlDisplay.style.display = 'block';
+                plainDisplay.style.display = 'none';
+                // Store plain text for toggle, even if not initially shown
+                plainDisplay.textContent = emailData.body_plain || 'No plain text version available.'; 
+                toggleBtn.textContent = 'Show Raw Text';
+                toggleBtn.dataset.currentView = 'html';
+                toggleBtn.style.display = 'inline-block';
+            } else if (emailData.body_plain) {
+                plainDisplay.textContent = emailData.body_plain;
+                plainDisplay.style.display = 'block';
+                htmlDisplay.style.display = 'none';
+                toggleBtn.textContent = 'Show Raw HTML (N/A)';
+                toggleBtn.dataset.currentView = 'plain';
+                // Show button but indicate no HTML, or hide if preferred
+                toggleBtn.style.display = 'inline-block'; 
+            } else {
+                plainDisplay.textContent = 'No content available.';
+                plainDisplay.style.display = 'block';
+                htmlDisplay.style.display = 'none';
+                toggleBtn.style.display = 'none';
+            }
+
+            const contentForAI = emailData.body_plain || emailData.snippet || (emailData.body_html ? "HTML content provided, not shown here." : "");
+            getInitialResponse(contentForAI, emailData.subject);
         })
         .catch(error => {
             console.error('Error fetching email content:', error);
-            document.getElementById('selected-email-content').innerHTML = `<p class="error">Error loading email content: ${error.message}</p>`;
+            emailHeaderDiv.innerHTML = `<p class="error">Error loading email header: ${error.message}</p>`;
+            // Also clear/error message the content display areas
+            document.getElementById('email-html-display').style.display = 'none';
+            const plainDisplay = document.getElementById('email-plain-display');
+            plainDisplay.textContent = `Error loading email content: ${error.message}`;
+            plainDisplay.style.display = 'block';
             document.getElementById('ai-response-area').value = 'Error loading email content.';
         });
 }
@@ -106,7 +156,10 @@ function getInitialResponse(emailBody, emailSubject) {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email_content: emailBody, email_subject: emailSubject })
+        body: JSON.stringify({ 
+            email_content: emailBody, // This should be the plain text version ideally
+            email_subject: emailSubject 
+        })
     })
     .then(response => {
         if (!response.ok) {
@@ -144,14 +197,17 @@ function getAdjustedResponse() {
 
     aiResponseArea.value = 'Adjusting response...'; // Indicate loading
 
+    // Use plain text for AI context if available
+    const contentForAI = currentEmail.body_plain || currentEmail.snippet || (currentEmail.body_html ? "HTML content provided, not shown here." : "");
+
      fetch('/api/generate_response', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        // Send original email body, subject, AND the new instructions
+        // Send original email body (plain text), subject, AND the new instructions
         body: JSON.stringify({
-            email_content: currentEmail.body,
+            email_content: contentForAI,
             email_subject: currentEmail.subject,
             instructions: instructions
         })
@@ -268,4 +324,29 @@ function escapeHTML(str) {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+}
+
+function toggleEmailDisplay() {
+    const htmlDisplay = document.getElementById('email-html-display');
+    const plainDisplay = document.getElementById('email-plain-display');
+    const toggleButton = document.getElementById('toggle-email-view');
+
+    if (toggleButton.dataset.currentView === 'html') {
+        htmlDisplay.style.display = 'none';
+        plainDisplay.style.display = 'block';
+        toggleButton.textContent = 'Show Rendered HTML';
+        toggleButton.dataset.currentView = 'plain';
+    } else {
+        // Only switch to HTML if it actually exists (currentEmail.body_html should be checked)
+        if (currentEmail && currentEmail.body_html) {
+            htmlDisplay.style.display = 'block';
+            plainDisplay.style.display = 'none';
+            toggleButton.textContent = 'Show Raw Text';
+            toggleButton.dataset.currentView = 'html';
+        } else {
+            // If no HTML, keep showing plain and indicate that
+            alert("No HTML version available to display.");
+            // Optionally disable the button or change text further
+        }
+    }
 } 
