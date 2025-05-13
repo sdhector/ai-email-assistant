@@ -1,48 +1,178 @@
 body {
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     margin: 0;
+    background-color: #f8f9fa; /* Light gray background */
+    color: #212529; /* Darker text for better contrast */
+    line-height: 1.6;
 }
 
 nav {
-    background-color: #f4f4f4;
-    padding: 10px;
-    border-bottom: 1px solid #ccc;
+    background-color: #ffffff; /* White navbar */
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex; /* For better alignment of nav items */
+    align-items: center;
 }
 
 nav a {
-    margin-right: 15px;
+    margin-right: 20px;
     text-decoration: none;
-    color: #333;
+    color: #007bff; /* Primary blue for links */
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.15s ease-in-out;
 }
 
 nav a:hover {
-    color: #000;
+    color: #0056b3; /* Darker blue on hover */
+    text-decoration: none;
 }
 
 .container {
-    padding: 20px;
+    padding: 25px;
+    max-width: 1600px; /* Max width for very large screens */
+    margin-left: auto;
+    margin-right: auto;
 }
 
-/* AI Response Screen Specific */
-.response-container {
-    display: flex;
-    gap: 20px;
+/* General heading style */
+h1, h2, h3 {
+    color: #343a40;
+    margin-top: 0;
 }
 
-.emails-panel,
-.ai-response-panel {
-    border: 1px solid #ccc;
-    padding: 15px;
-    flex: 1;
-}
-
-#email-list li {
+/* Basic Button Styling (can be overridden for specific buttons) */
+button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
     cursor: pointer;
-    padding: 5px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: background-color 0.15s ease-in-out;
 }
 
-#email-list li:hover {
-    background-color: #eee;
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* Textarea and Input Styling */
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    box-sizing: border-box; /* Important for width 100% */
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 10px; /* Add some space below inputs */
+}
+
+textarea {
+    resize: vertical; /* Allow vertical resize, restrict horizontal */
+}
+
+/* AI Response Screen Specific - existing styles to be reviewed/merged */
+/* .response-container - this class name is now on ai_response_screen.html for the 2x2 grid parent */
+/* The old .emails-panel, .ai-response-panel are now .grid-cell subclasses */
+
+/* We will style .grid-column and .grid-cell elements from HTML as they have inline styles for flex structure */
+/* However, we can style the *content* of those cells */
+
+.grid-cell {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    /* padding is already inline, but could be standardized here if inline is removed */
+}
+
+#email-list li,
+#action-items-ul li { /* Targeting both action item list and email list */
+    cursor: pointer;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f3f5; /* Lighter border for list items */
+    transition: background-color 0.15s ease-in-out;
+    list-style-type: none; /* Remove default bullets */
+}
+
+#email-list li:last-child,
+#action-items-ul li:last-child {
+    border-bottom: none;
+}
+
+#email-list li:hover,
+#action-items-ul li:hover {
+    background-color: #e9ecef; /* Light gray hover for list items */
+}
+
+#email-list li.selected, /* Assuming a .selected class might be added by JS for highlighting */
+#action-items-ul li.selected {
+    background-color: #007bff; /* Blue background for selected */
+    color: white;
+    border-color: #0069d9;
+}
+
+#email-list li.selected small,
+#action-items-ul li.selected small {
+    color: #e0e0e0; /* Lighter text for sub-info on selected item */
+}
+
+
+/* Chatbot history specific styling */
+#chatbot-history {
+    background-color: #f8f9fa; /* Slightly different background for history */
+    border-radius: 4px;
+}
+
+#chatbot-history div {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+#chatbot-history div:last-child {
+    border-bottom: none;
+}
+
+
+/* Action Items Screen Specific - old styles to be reviewed */
+/* #action-items-list div - this was old structure, now it's #action-items-ul li */
+
+
+/* Specific button styles if needed */
+#delete-button {
+    background-color: #dc3545; /* Red for delete */
+}
+#delete-button:hover {
+    background-color: #c82333;
+}
+
+/* Knowledge Screen Specific - textarea already covered by general textarea style */
+
+/* Utility classes (optional, but good for modern design) */
+.error {
+    color: #dc3545; /* Red for error messages */
+    font-weight: bold;
+}
+
+/* Ensure iframe and pre take up space correctly - already handled by inline flex-grow */
+#email-html-display, #email-plain-display,
+#action-item-email-html-display, #action-item-email-plain-display {
+    background-color: #fff; /* Ensure background for these elements */
+}
+
+/* Clear default padding from ul if it was causing issues with panel padding */
+#email-list, #action-items-ul {
+    padding-left: 0; /* Remove default user-agent padding for ul */
 }
 
 #chatbot-interface {
@@ -55,10 +185,4 @@ nav a:hover {
 #action-items-list div {
     border-bottom: 1px solid #eee;
     padding: 10px 0;
-}
-
-/* Knowledge Screen Specific */
-textarea {
-    width: 100%;
-    box-sizing: border-box;
 } 

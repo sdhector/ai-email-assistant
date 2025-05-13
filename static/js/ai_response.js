@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const approveButton = document.getElementById('approve-button');
     approveButton.addEventListener('click', sendApprovedEmail);
 
+    const deleteButton = document.getElementById('delete-button'); // Get delete button
+    deleteButton.addEventListener('click', deleteSelectedEmail); // Add listener
+
     const chatbotSubmitButton = document.getElementById('chatbot-submit');
     chatbotSubmitButton.addEventListener('click', getAdjustedResponse);
 
@@ -311,6 +314,69 @@ function sendApprovedEmail() {
         approveButton.disabled = false;
         approveButton.textContent = 'Approve & Send';
     });
+}
+
+function deleteSelectedEmail() {
+    if (!currentEmail || !currentEmail.id) {
+        alert("Please select an email to delete.");
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to move the email "${currentEmail.subject}" to trash?`)) {
+        return;
+    }
+
+    const messageId = currentEmail.id;
+    const deleteButton = document.getElementById('delete-button');
+    deleteButton.disabled = true;
+    deleteButton.textContent = 'Deleting...';
+
+    fetch('/api/delete_email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: messageId })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { 
+                throw new Error(err.error || `HTTP error! status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        alert(data.message || "Email moved to trash successfully!");
+        fetchEmails(); // Refresh the email list
+        clearSelectedEmailView(); // Clear out the selected email display areas
+    })
+    .catch(error => {
+        console.error('Error deleting email:', error);
+        alert(`Error deleting email: ${error.message}`);
+    })
+    .finally(() => {
+        deleteButton.disabled = false;
+        deleteButton.textContent = 'Delete Email';
+    });
+}
+
+function clearSelectedEmailView() {
+    document.getElementById('selected-email-header').innerHTML = '';
+    const htmlDisplayFrame = document.getElementById('email-html-display');
+    htmlDisplayFrame.srcdoc = '';
+    htmlDisplayFrame.style.display = 'none';
+    const plainDisplayPre = document.getElementById('email-plain-display');
+    plainDisplayPre.textContent = '';
+    plainDisplayPre.style.display = 'none';
+    document.getElementById('ai-response-area').value = '';
+    document.getElementById('chatbot-history').innerHTML = '';
+    document.getElementById('chatbot-input').value = '';
+    const toggleButton = document.getElementById('toggle-email-view');
+    if (toggleButton) {
+        toggleButton.style.display = 'none';
+    }
+    currentEmail = null;
 }
 
 // Helper function to extract email from strings like "Sender Name <email@example.com>"
