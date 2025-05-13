@@ -4,9 +4,31 @@
 
 {% block content %}
 <h1>Action Items</h1>
-<div id="action-items-list">
-    <!-- Action items will be loaded here -->
-    <p>Loading action items...</p>
+<div class="action-items-container" style="display: flex; gap: 20px; height: 70vh;">
+
+    <!-- Left Column: Action Items List -->
+    <div class="action-items-list-panel" style="flex: 1; border: 1px solid #ddd; padding: 10px; overflow-y: auto;">
+        <h2>Identified Actions</h2>
+        <ul id="action-items-ul"> <!-- Changed ID from div to ul for semantic list -->
+            <!-- Action items will be loaded here by JS -->
+            <li>Loading action items...</li>
+        </ul>
+    </div>
+
+    <!-- Right Column: Selected Email Content -->
+    <div class="action-item-email-panel" style="flex: 2; border: 1px solid #ddd; padding: 10px; overflow-y: auto; display: flex; flex-direction: column;">
+        <h2>Email Content</h2>
+        <div id="action-item-email-header" style="margin-bottom: 10px;">
+            <!-- Email From/Subject will be loaded here -->
+        </div>
+        <!-- Toggle button can be added here by JS if needed -->
+        <div id="action-item-email-content-view" style="flex-grow: 1; display: flex; flex-direction: column;">
+            <iframe id="action-item-email-html-display" style="width: 100%; flex-grow: 1; border: 1px solid #ccc; display: none;"></iframe>
+            <pre id="action-item-email-plain-display" style="white-space: pre-wrap; word-wrap: break-word; border: 1px solid #ccc; padding: 10px; display: none; flex-grow: 1; overflow-y: auto;"></pre>
+            <p id="action-item-email-placeholder" style="text-align: center; margin-top: 20px;">Select an action item to view the email.</p>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 

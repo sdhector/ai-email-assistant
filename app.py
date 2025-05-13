@@ -27,11 +27,12 @@ if not app.secret_key:
     # raise ValueError("FLASK_SECRET_KEY must be set in .env")
 
 # --- Gmail API Setup ---
-# Scopes remain the same
 # Update scopes to include the ones Google automatically adds (OIDC scopes)
+# and the gmail.modify scope for full email management including trashing.
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly', 
     'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.modify', # Added for trashing and other modifications
     'openid',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile'
@@ -119,27 +120,34 @@ def oauth2callback():
         return f"Failed to fetch token or store credentials: {e}", 500
 
 def get_credentials_from_session():
-    """Retrieves Google credentials from the session."""
+    """Retrieves Google credentials from the session and validates scopes."""
     if 'credentials' not in session:
+        print("No credentials in session.")
         return None
-    # Create Credentials object from session data
+    
     creds_dict = session['credentials']
+    
+    # Validate if all required SCOPES are present in the session credentials
+    # This ensures that if SCOPES are updated, user will be forced to re-authorize
+    session_scopes = creds_dict.get('scopes', [])
+    if not all(s in session_scopes for s in SCOPES):
+        print("Scope mismatch or missing scopes in session credentials. Clearing to force re-auth.")
+        session.pop('credentials', None)
+        session.pop('oauth_state', None) # Also clear oauth state
+        return None
+        
     # Important: Check for refresh token existence before assuming it can be refreshed
     if not creds_dict.get('refresh_token'):
-         print("Warning: No refresh token found in session credentials.")
-         # Might need to re-authorize if access token expires
-         # For simplicity now, just return potentially short-lived creds
-         # Alternatively, clear session and force re-auth: 
-         # session.pop('credentials', None)
-         # return None
+         print("Warning: No refresh token found in session credentials. Re-authorization may be needed soon.")
+         # Depending on strictness, could clear session here too if refresh token is mandatory
 
     return Credentials(**creds_dict)
 
 def get_gmail_service():
     """Builds the Gmail service object using credentials from the session."""
-    creds = get_credentials_from_session()
+    creds = get_credentials_from_session() # This now includes scope validation
     if not creds:
-        print("No valid credentials found in session.")
+        print("No valid or correctly scoped credentials found in session.")
         return None # Caller needs to handle this (e.g., redirect to /authorize)
 
     try:
@@ -484,6 +492,32 @@ def send_email():
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 
+@app.route('/api/delete_email', methods=['POST'])
+def delete_email_route(): # Renamed to avoid conflict with any potential local 'delete_email' function
+    service = get_gmail_service()
+    if not service:
+        return jsonify({"error": "Authentication required or failed to get Gmail service."}), 401
+
+    message_id = request.json.get('id')
+    if not message_id:
+        return jsonify({"error": "Missing message ID"}), 400
+
+    try:
+        # Moves the specified message to the trash.
+        service.users().messages().trash(userId='me', id=message_id).execute()
+        print(f"Message with ID: {message_id} moved to trash.")
+        return jsonify({"status": "success", "message": f"Email {message_id} moved to trash."})
+    except HttpError as error:
+        print(f'An error occurred trashing email {message_id}: {error}')
+        if error.resp.status in [401, 403]:
+            session.pop('credentials', None)
+            return jsonify({"error": f"Authentication error: {error}"}), 401
+        return jsonify({"error": f"Gmail API error: {error}"}), 500
+    except Exception as e:
+        print(f'An unexpected error occurred trashing email {message_id}: {e}')
+        return jsonify({"error": "An unexpected error occurred while trashing email"}), 500
+
+
 @app.route('/api/action_items', methods=['GET'])
 def get_action_items():
     service = get_gmail_service()
@@ -544,7 +578,7 @@ def get_action_items():
         prompt = f"""You are an AI assistant tasked with identifying actionable items from a list of emails.
         Analyze the following email contents and extract any clear tasks, deadlines, or requests for the user.
         Ignore general information or conversations unless they contain a specific action required from the user.
-        For each action item, state the source email (Subject or ID) and the required action.
+        When you identify an action item, you MUST prefix it with the exact Email ID it refers to, like this: '[EmailID: <original_email_id_here>] Action: [Description of action]'.
         If an email contains no action items, ignore it.
 
         Knowledge Base Context (if relevant):
@@ -557,8 +591,10 @@ def get_action_items():
         {emails_text_block}
         ---
 
-        List the action items below, one per line, in the format:
-        "Action: [Description of action] (From Email Subject: [Subject] / ID: [ID])"
+        List the action items below, one per line. For example:
+        [EmailID: 18f5b1d6a3b4c0a0] Action: Follow up with John Doe about the report deadline.
+        [EmailID: 18f5b1d6a3b4c0a1] Action: Prepare slides for Tuesday's presentation.
+
         If no action items are found in any email, respond with "No action items found." """
 
         # 3. Call Gemini API
@@ -570,26 +606,36 @@ def get_action_items():
              return jsonify({"error": "Failed to extract action items. Content might be blocked or empty.", "details": str(safety_feedback)}), 500
 
         action_items_text = response.text
+        print(f"Gemini raw action items output:\n{action_items_text}") # Log Gemini's raw output
 
         # 4. Parse the response
+        import re # Import re for parsing
         action_items_list = []
         if action_items_text.strip() and "no action items found" not in action_items_text.lower():
             lines = action_items_text.strip().split('\n')
             for line in lines:
-                 if line.strip().lower().startswith("action:"):
-                     action_desc = line.replace("Action:", "").strip()
-                     source_email = "Unknown Source"
-                     if "(From Email Subject:" in action_desc:
-                         source_email = action_desc[action_desc.find("(From Email Subject:"):]
-                         action_desc = action_desc[:action_desc.find("(From Email Subject:")].strip()
-                     elif "(ID:" in action_desc:
-                          source_email = action_desc[action_desc.find("(ID:"):]
-                          action_desc = action_desc[:action_desc.find("(ID:")].strip()
-
-                     action_items_list.append({
-                         "action": action_desc,
-                         "source": source_email
-                     })
+                line = line.strip()
+                # Regex to capture EmailID and the action description
+                match = re.match(r'^\[EmailID:\s*([\w\d]+)\]\s*Action:\s*(.+)$', line, re.IGNORECASE)
+                if match:
+                    email_id = match.group(1)
+                    action_desc = match.group(2).strip()
+                    
+                    # Find the subject for this email_id from our original emails_data list for better context
+                    original_email_subject = "Unknown Subject"
+                    for email_detail in emails_data:
+                        if email_detail['id'] == email_id:
+                            original_email_subject = email_detail['subject']
+                            break
+                            
+                    action_items_list.append({
+                        "email_id": email_id,
+                        "action": action_desc,
+                        "source_subject": original_email_subject # Add subject for context
+                    })
+                elif line: # Log lines that didn't match the expected format for debugging
+                    print(f"Skipping non-matching line for action item: {line}")
+                    
         return jsonify(action_items_list)
 
     except HttpError as error:
@@ -649,6 +695,5 @@ if __name__ == '__main__':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
     # Note: Use a proper WSGI server like Gunicorn or Waitress for production
-    # Specify host='0.0.0.0' to make accessible on network if needed, 
-    # but stick to 127.0.0.1 (default) for security unless required.
-    app.run(debug=True, port=5000) 
+    # Specify host='0.0.0.0' to make accessible on network if needed.
+    app.run(host='0.0.0.0', debug=True, port=5000) 
