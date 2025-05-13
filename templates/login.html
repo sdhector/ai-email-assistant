@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Login Required{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Authentication Required</h1>
+    <p>To use the AI Email Chatbot, you need to authorize access to your Gmail account.</p>
+    <p>
+        <a href="{{ url_for('authorize') }}" class="button">Login with Google</a>
+    </p>
+    <p><small>(You will be redirected to Google to sign in and grant permissions.)</small></p>
+</div>
+{% endblock %}
+
+{# Remove default navigation for login page if desired #}
+{% block nav %}{% endblock %} 
