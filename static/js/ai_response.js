@@ -302,9 +302,9 @@ function sendApprovedEmail() {
         // TODO: Optionally remove email from list or mark as read/replied
         fetchEmails(); // Refresh email list as a simple update
         // Clear current selection
-        document.getElementById('selected-email-content').innerHTML = '';
-        document.getElementById('ai-response-area').value = '';
-        currentEmail = null;
+        clearSelectedEmailView(); // Use the existing function to clear the view
+        // document.getElementById('ai-response-area').value = ''; // This is already in clearSelectedEmailView
+        // currentEmail = null; // This is already in clearSelectedEmailView
     })
     .catch(error => {
         console.error('Error sending email:', error);

@@ -11,7 +11,7 @@ automatic_scaling:
 
 env_variables:
   # This will be your App Engine service URL + /oauth2callback
-  GOOGLE_REDIRECT_URI: "https://ai-email-assistant-dot-personaldataassistant.appspot.com/oauth2callback"
+  GOOGLE_REDIRECT_URI: "https://ai-email-assistant-dot-personaldataassistant.uc.r.appspot.com/oauth2callback"
   # OAUTHLIB_INSECURE_TRANSPORT should NOT be set to '1' in production
   # It defaults to requiring HTTPS, which App Engine provides.
 
