@@ -16,58 +16,65 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 # Attempt to import Google Secret Manager client
 try:
     from google.cloud import secretmanager
+    print("Google Secret Manager client imported successfully.")
 except ImportError:
-    secretmanager = None # Will be None if not in App Engine or google-cloud-secret-manager not installed
+    secretmanager = None
+    print("Google Secret Manager client not available. Ensure 'google-cloud-secret-manager' is installed.")
 
 # --- App Initialization & Configuration Loading ---
 app = Flask(__name__)
 
-# Load environment variables from .env file for local development
-# In App Engine, these will be set by app.yaml or fetched from Secret Manager
+# Load environment variables from .env file first. 
+# These can serve as fallbacks or for non-sensitive configs.
 load_dotenv()
+print("Loaded .env file (if present).")
 
 # Function to access secrets from Google Secret Manager
 def access_secret_version(project_id, secret_id, version_id="latest"):
     if not secretmanager:
-        print("Secret Manager client not available. Cannot fetch secrets.")
+        print(f"Secret Manager client not available. Cannot fetch secret: {secret_id}")
         return None
     try:
         client = secretmanager.SecretManagerServiceClient()
         name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        print(f"Attempting to access secret: {name}")
         response = client.access_secret_version(request={"name": name})
-        return response.payload.data.decode("UTF-8")
+        secret_value = response.payload.data.decode("UTF-8")
+        print(f"Successfully accessed secret: {secret_id}")
+        return secret_value
     except Exception as e:
-        print(f"Error accessing secret {secret_id} from Secret Manager: {e}")
+        print(f"Error accessing secret {secret_id} from Secret Manager (project: {project_id}): {e}")
         return None
 
-# Configure Flask secret key and Gemini API key
+# Configure Flask secret key and Gemini API key, prioritizing Secret Manager
 flask_secret_key_val = None
 gemini_api_key_val = None
 
-if os.getenv('GAE_ENV') == 'standard': # Running in App Engine
-    print("Running in App Engine environment. Attempting to load secrets from Secret Manager.")
-    # Project ID for secrets (replace with your actual project ID where secrets are stored, if different from app's project)
-    # Using the project ID you provided: 872125090800
-    secrets_project_id = "872125090800" 
-    
-    flask_secret_key_val = access_secret_version(secrets_project_id, "FLASK_APP_SECRET_KEY")
-    gemini_api_key_val = access_secret_version(secrets_project_id, "GEMINI_API_KEY")
+# Project ID where secrets are stored
+SECRETS_PROJECT_ID = "872125090800" 
+FLASK_SECRET_ID = "FLASK_APP_SECRET_KEY"
+GEMINI_SECRET_ID = "GEMINI_API_KEY"
 
-    if not flask_secret_key_val:
-        print("CRITICAL ERROR: FLASK_APP_SECRET_KEY not found in Secret Manager for App Engine.")
-        # Potentially raise an error or exit if this is critical for startup
-    if not gemini_api_key_val:
-        print("Warning: GEMINI_API_KEY not found in Secret Manager for App Engine.")
-        # AI features might be disabled
-else: # Local development or other environments
-    print("Not in App Engine environment. Loading secrets from .env file.")
+print(f"Attempting to load secrets from Secret Manager (Project ID: {SECRETS_PROJECT_ID})...")
+flask_secret_key_val = access_secret_version(SECRETS_PROJECT_ID, FLASK_SECRET_ID)
+gemini_api_key_val = access_secret_version(SECRETS_PROJECT_ID, GEMINI_SECRET_ID)
+
+# Fallback to .env if Secret Manager failed or values are None
+if not flask_secret_key_val:
+    print(f"Could not load {FLASK_SECRET_ID} from Secret Manager. Attempting to load from .env or environment variables.")
     flask_secret_key_val = os.getenv('FLASK_SECRET_KEY')
-    gemini_api_key_val = os.getenv('GEMINI_API_KEY')
+    if flask_secret_key_val:
+        print(f"Loaded {FLASK_SECRET_ID} from .env or environment variables.")
+    else:
+        print(f"CRITICAL ERROR: {FLASK_SECRET_ID} not found in Secret Manager or .env. Sessions will not work.")
 
-    if not flask_secret_key_val:
-        print("CRITICAL ERROR: FLASK_SECRET_KEY not found in .env file. Sessions will not work.")
-    if not gemini_api_key_val:
-        print("Warning: GEMINI_API_KEY not found in .env file.")
+if not gemini_api_key_val:
+    print(f"Could not load {GEMINI_SECRET_ID} from Secret Manager. Attempting to load from .env or environment variables.")
+    gemini_api_key_val = os.getenv('GEMINI_API_KEY')
+    if gemini_api_key_val:
+        print(f"Loaded {GEMINI_SECRET_ID} from .env or environment variables.")
+    else:
+        print(f"Warning: {GEMINI_SECRET_ID} not found in Secret Manager or .env. AI features may be disabled.")
 
 app.secret_key = flask_secret_key_val
 
@@ -79,7 +86,7 @@ if gemini_api_key_val:
         gemini_model = genai.GenerativeModel('gemini-1.5-flash') 
         print("Gemini AI configured successfully.")
     except Exception as e:
-        print(f"Error configuring Gemini AI with fetched key: {e}")
+        print(f"Error configuring Gemini AI with API key: {e}")
 else:
     print("Gemini API key not available. AI features may be limited or disabled.")
 
