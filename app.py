@@ -49,15 +49,18 @@ def access_secret_version(project_id, secret_id, version_id="latest"):
 # Configure Flask secret key and Gemini API key, prioritizing Secret Manager
 flask_secret_key_val = None
 gemini_api_key_val = None
+oauth_credentials_json_str = None
 
 # Project ID where secrets are stored
 SECRETS_PROJECT_ID = "872125090800" 
 FLASK_SECRET_ID = "FLASK_APP_SECRET_KEY"
 GEMINI_SECRET_ID = "GEMINI_API_KEY"
+OAUTH_CREDENTIALS_SECRET_ID = "ai-email-assistant-credentials" # New secret ID
 
 print(f"Attempting to load secrets from Secret Manager (Project ID: {SECRETS_PROJECT_ID})...")
 flask_secret_key_val = access_secret_version(SECRETS_PROJECT_ID, FLASK_SECRET_ID)
 gemini_api_key_val = access_secret_version(SECRETS_PROJECT_ID, GEMINI_SECRET_ID)
+oauth_credentials_json_str = access_secret_version(SECRETS_PROJECT_ID, OAUTH_CREDENTIALS_SECRET_ID) # Fetch the new secret
 
 # Fallback to .env if Secret Manager failed or values are None
 if not flask_secret_key_val:
@@ -75,6 +78,11 @@ if not gemini_api_key_val:
         print(f"Loaded {GEMINI_SECRET_ID} from .env or environment variables.")
     else:
         print(f"Warning: {GEMINI_SECRET_ID} not found in Secret Manager or .env. AI features may be disabled.")
+
+if not oauth_credentials_json_str:
+    print(f"Could not load {OAUTH_CREDENTIALS_SECRET_ID} from Secret Manager. Will attempt to use local credentials.json if present for OAuth flow.")
+else:
+    print(f"Successfully loaded {OAUTH_CREDENTIALS_SECRET_ID} from Secret Manager.")
 
 app.secret_key = flask_secret_key_val
 
@@ -109,9 +117,42 @@ REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/oauth2cal
 
 def get_google_flow():
     """Creates a Google OAuth Flow object for web application flow."""
+    global oauth_credentials_json_str # Access the globally loaded secret string
+
+    flow_config = None
+    if oauth_credentials_json_str:
+        try:
+            # Attempt to load config from the fetched JSON string
+            client_config = json.loads(oauth_credentials_json_str)
+            # Ensure the config is in the expected format (e.g., contains 'web' or 'installed' key)
+            if 'web' in client_config or 'installed' in client_config: # Common top-level keys in client secrets
+                flow_config = client_config
+                print(f"Successfully parsed OAuth client config from Secret Manager for {OAUTH_CREDENTIALS_SECRET_ID}.")
+            else:
+                print(f"Warning: OAuth client config from Secret Manager ({OAUTH_CREDENTIALS_SECRET_ID}) does not have expected structure ('web' or 'installed' key missing). Will try local file.")
+        except json.JSONDecodeError as jde:
+            print(f"Error decoding JSON from {OAUTH_CREDENTIALS_SECRET_ID} in Secret Manager: {jde}. Will try local file.")
+        except Exception as e:
+            print(f"Unexpected error processing OAuth config from Secret Manager ({OAUTH_CREDENTIALS_SECRET_ID}): {e}. Will try local file.")
+
+    if flow_config:
+        try:
+            flow = Flow.from_client_config(
+                flow_config, # Use the parsed config
+                scopes=SCOPES,
+                redirect_uri=REDIRECT_URI
+            )
+            print("OAuth flow created using configuration from Secret Manager.")
+            return flow
+        except Exception as e:
+            print(f"ERROR: Failed to create OAuth flow from Secret Manager config: {e}. Will try local file.")
+
+
+    # Fallback to local credentials.json file if secret not loaded, invalid, or flow creation failed
+    print(f"Attempting to create OAuth flow from local file: {CREDENTIALS_FILE}")
     if not os.path.exists(CREDENTIALS_FILE):
-        print(f"ERROR: Credentials file {CREDENTIALS_FILE} not found.")
-        raise FileNotFoundError(f"Credentials file not found: {CREDENTIALS_FILE}")
+        print(f"ERROR: Credentials file {CREDENTIALS_FILE} not found. And no valid config from Secret Manager.")
+        raise FileNotFoundError(f"Credentials file not found: {CREDENTIALS_FILE}, and Secret Manager config was not available or failed.")
     try:
         # Load client secrets for web flow
         flow = Flow.from_client_secrets_file(
@@ -119,6 +160,7 @@ def get_google_flow():
             scopes=SCOPES,
             redirect_uri=REDIRECT_URI
         )
+        print("OAuth flow created using local credentials.json file.")
         return flow
     except ValueError as ve:
         print(f"ERROR: Invalid JSON format or structure in {CREDENTIALS_FILE}. {ve}")
