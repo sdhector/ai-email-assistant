@@ -95,6 +95,10 @@ textarea {
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     /* padding is already inline, but could be standardized here if inline is removed */
+    border: 1px solid #ddd;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
 }
 
 #email-list li,
@@ -185,4 +189,409 @@ textarea {
 #action-items-list div {
     border-bottom: 1px solid #eee;
     padding: 10px 0;
+}
+
+/* --- New Mobile Responsive Styles for AI Response Screen --- */
+
+/* Mobile Email Snippet List Styling */
+.mobile-email-list-container {
+    display: none; /* Hidden by default, shown via media query */
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#mobile-email-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+#mobile-email-list li {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    background-color: #fff;
+}
+
+#mobile-email-list li:hover {
+    background-color: #f5f5f5;
+}
+
+#mobile-email-list li .email-snippet-sender {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.95em;
+    margin-bottom: 3px;
+    display: block;
+}
+
+#mobile-email-list li .email-snippet-subject {
+    color: #444;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#mobile-email-list li .email-snippet-body {
+    color: #777;
+    font-size: 0.85em;
+    margin-bottom: 5px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#mobile-email-list li .email-snippet-date {
+    font-size: 0.8em;
+    color: #999;
+    float: right; /* Align date to the right */
+}
+
+/* Clearfix for the float in email snippet date if sender/subject are short */
+#mobile-email-list li::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+
+/* Mobile Single Email View Styling */
+.mobile-single-email-view-container {
+    display: none; /* Hidden by default, JS adds .active to show */
+    position: fixed; /* Or absolute, depending on parent */
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: #fff;
+    z-index: 1000;
+    display: flex; /* Changed from inline */
+    flex-direction: column;
+}
+
+.mobile-single-email-top-bar {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0; /* Prevent top bar from shrinking */
+    background-color: #f8f9fa;
+}
+
+.mobile-single-email-top-bar h3 {
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1.1em;
+}
+
+.mobile-top-actions {
+    display: flex;
+    flex-shrink: 0; /* Prevent actions container from shrinking */
+}
+.mobile-top-actions button {
+    margin-left: 5px;
+}
+/* Specific styles for placeholder buttons if needed (colors already inline) */
+#mobile-add-to-calendar-btn, #mobile-add-to-task-btn {}
+
+
+.mobile-main-content-area {
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
+    min-height: 0; 
+}
+
+.mobile-reply-interface-wrapper {
+    display: none; /* JS toggles this with .active-reply */
+    flex-direction: column;
+    flex-shrink: 0; 
+    background-color: #f0f0f0;
+    /* This wrapper gets 45% of .mobile-main-content-area height when .active-reply is present */
+}
+
+.mobile-reply-interface-wrapper.active-reply {
+    display: flex !important; 
+    flex-basis: 50%; /* Was 60%. This wrapper now takes 50% of .mobile-main-content-area height */
+}
+
+/* Styling for sections B, C, D, and final actions within the wrapper */
+.mobile-reply-section-b, 
+.mobile-reply-section-c, 
+.mobile-reply-section-d, 
+.mobile-reply-final-actions {
+    display: flex; /* Allow internal flex alignment if needed */
+    flex-direction: column; /* Default for content stacking */
+    padding: 5px 10px; /* Basic padding */
+    box-sizing: border-box;
+}
+
+.mobile-reply-section-b { /* Box B: Title - 10% of main content area */
+    /* flex-basis relative to its parent (.mobile-reply-interface-wrapper which is 45% of main) */
+    /* So, (10 / 45) * 100% = 22.22% of the wrapper */
+    flex-basis: 10%; /* Was 22.22% - New: 10% of wrapper height */
+    justify-content: center; /* Vertically center title if desired */
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.mobile-reply-section-b h4 {
+    margin: 0;
+    font-size: 1em;
+}
+
+.mobile-reply-section-c { /* Box C: AI Textarea */
+    flex-basis: 40%; /* Was 30% - New: 40% of wrapper height */
+}
+
+#mobile-ai-response-area {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+    resize: none; 
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+
+.mobile-reply-section-d { /* Box D: User Instructions */
+    flex-basis: 35%; /* Was 45% - New: 35% of wrapper height */
+}
+
+#mobile-user-instructions-input {
+    width: 100%;
+    height: 100%; /* Was calc(100% - 35px) */
+    box-sizing: border-box;
+    overflow-y: auto;
+    resize: none;
+    border: 1px solid #ccc;
+    padding: 5px;
+    /* margin-bottom: 5px; Removed */
+}
+
+/* Removed specific styling for #mobile-adjust-reply-btn as it's now handled by .mobile-reply-consolidated-actions button */
+.mobile-reply-final-actions {
+    flex-shrink: 0; /* Don't shrink this bar */
+    padding-top: 10px; /* Space above buttons */
+    border-top: 1px solid #e0e0e0;
+    display: flex; /* For button alignment */
+    flex-direction: row; /* Align buttons in a row */
+    justify-content: flex-end; /* Example: align buttons to the right */
+    gap: 10px;
+}
+
+.mobile-single-email-content-display { /* Box A - Email Content */
+    flex-grow: 1; /* Takes remaining space (~55% if reply is 45%) */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
+    padding: 10px;
+    min-height: 0;
+}
+
+#mobile-selected-email-header {
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+#mobile-email-html-display, 
+#mobile-email-plain-display {
+    width: 100%;
+    flex-grow: 1; /* Fill available vertical space in content-display */
+    border: none; /* Clean look for iframe */
+    overflow-y: auto; /* Scroll internal content */
+    min-height: 0; /* Allow shrinking */
+}
+
+#mobile-email-html-display {
+    display: none; /* JS toggles */
+}
+#mobile-email-plain-display {
+    display: none; /* JS toggles */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+
+/* Ensure original .mobile-reply-box (now defunct) rules are removed or adapted if any linger */
+.mobile-reply-box { /* This class might be gone from HTML now */
+    /* display: none; */ 
+}
+
+/* Responsive Grid Visibility - Show mobile list by default, then switch to grid */
+/* For this example, let's assume mobile-first: grid is hidden, mobile list is shown */
+
+/* Default styles assuming mobile-first OR forced mobile */
+.response-grid-container {
+    display: none; 
+}
+.mobile-email-list-container {
+    display: block; 
+}
+
+/* Styles when force-mobile-active is on the body */
+body.force-mobile-active .response-grid-container {
+    display: none !important; /* Key: ensure desktop grid is hidden */
+}
+body.force-mobile-active .mobile-email-list-container {
+    /* This will be block by default, ensure single view can hide it */
+    /* JS will manage display: block/none for toggling with single view */
+}
+body.force-mobile-active .mobile-single-email-view-container.active {
+    display: flex !important; 
+}
+body.force-mobile-active .mobile-single-email-view-container:not(.active) {
+    display: none !important;
+}
+
+
+.mobile-single-email-view-container.active {
+    display: flex !important; /* Override inline style when active */
+}
+
+/* Larger screens (e.g., tablets and desktops) - ONLY if NOT forced mobile */
+@media (min-width: 768px) {
+    body:not(.force-mobile-active) .mobile-email-list-container {
+        display: none !important; /* Hide mobile list on larger screens */
+    }
+
+    body:not(.force-mobile-active) .response-grid-container {
+        display: flex !important; /* Show desktop grid on larger screens */
+                                  /* Inline styles for flex properties will apply */
+    }
+
+    body:not(.force-mobile-active) .mobile-single-email-view-container {
+        display: none !important; /* Ensure mobile full screen view is hidden on desktop */
+    }
+
+    /* Adjustments for desktop email list if any specific styling needed beyond what it has */
+    .desktop-email-list-panel #email-list li {
+        /* Existing #email-list li styles will apply */
+        /* Add any desktop specific overrides here if needed */
+    }
+}
+
+/* Further refine styling of existing grid-cells, removing inline styles where possible */
+.emails-panel-container, 
+.selected-email-container,
+.ai-response-panel-container,
+.chatbot-interface-container {
+    flex: 1; /* All cells take equal space in their column by default */
+    min-height: 0; /* Crucial for allowing flex items to shrink */
+    overflow-y: hidden; /* Prevent these panels from scrolling; their content will scroll */
+}
+
+/* Ensure selected-email-container also has overflow for its content */
+.selected-email-container {
+    overflow-y: hidden; /* its children iframe/pre will scroll */
+}
+
+#selected-email-header {
+    margin-bottom: 5px;
+}
+
+#email-content-view {
+    flex-grow: 1;
+    display: flex; 
+    flex-direction: column;
+    min-height: 0; /* Allow this to shrink */
+    overflow-y: hidden; /* Let iframe/pre handle their own scroll */
+}
+
+#email-html-display, #email-plain-display {
+    width: 100%;
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    /* display: none; will be controlled by JS */
+    overflow-y: auto; /* Enable scrolling on the content viewers themselves */
+}
+
+#ai-response-area {
+    width: 100%;
+    /* flex-grow: 1; Let the parent cell manage its height */
+    box-sizing: border-box;
+    margin-top: 5px;
+    min-height: 70px; 
+    height: 100%; /* Try to fill parent */
+    overflow-y: auto; /* Allow textarea to scroll */
+    resize: vertical; /* Keep this */
+}
+
+.action-buttons {
+    margin-top: 10px;
+    flex-shrink: 0; /* Prevent buttons from shrinking */
+}
+
+#chatbot-history {
+    max-height: 150px; 
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-bottom: 5px;
+    flex-shrink: 0; /* Important: prevent history from being squished too much */
+    background-color: #f8f9fa; 
+    border-radius: 4px; 
+}
+
+/* Ensure proper styling for chatbot history divs if they were separated */
+#chatbot-history div {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+#chatbot-history div:last-child {
+    border-bottom: none;
+}
+
+#chatbot-input {
+    width: 100%;
+    /* flex-grow: 1; Let parent cell manage its height */
+    box-sizing: border-box;
+    margin-top: 5px;
+    min-height: 70px; 
+    height: 100%; /* Try to fill parent */
+    overflow-y: auto; /* Allow textarea to scroll */
+    resize: vertical;
+}
+
+#chatbot-submit {
+    margin-top: 5px;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+.mobile-reply-consolidated-actions { /* Renamed from .mobile-reply-final-actions */
+    flex-basis: 15%; /* New: 15% of wrapper height */
+    display: flex;
+    flex-direction: row;
+    align-items: stretch; /* Make buttons fill height of the bar */
+    padding: 8px 5px; /* Padding for the bar itself */
+    box-sizing: border-box;
+    gap: 8px; /* Spacing between buttons */
+    border-top: 1px solid #e0e0e0; /* Kept from old style */
+}
+
+.mobile-reply-consolidated-actions button {
+    flex: 1 1 0; /* Grow and shrink equally, basis 0 - for equal width */
+    padding: 8px 5px; /* Consistent padding for all buttons */
+    font-size: 0.9em;
+    border-radius: 4px;
+    border: 1px solid transparent; /* Ensure border consistency if some had default */
+    background-color: #007bff; /* Example button color, ensure consistency or use existing variables */
+    color: white;
+    /* height: 100%; // align-items: stretch on parent should handle this */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+}
+
+.mobile-reply-consolidated-actions button:hover {
+    background-color: #0056b3; /* Darker on hover */
 } 
