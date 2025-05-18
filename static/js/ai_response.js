@@ -1,6 +1,18 @@
 // JavaScript for AI Response Screen
 console.log("AI Response JS loaded.");
 
+// --- Global In-Memory Cache ---
+let inMemoryEmailStore = { // Stores all fetched emails by ID
+    emailsById: {},
+    // To keep track of emails per filter type for pagination and display
+    // Example: filterViews.priority = { emailIds: [id1, id2, ...], nextPageToken: '...', allLoadedForFilter: false }
+    filterViews: {
+        priority: { emailIds: [], nextPageToken: null, allLoadedForFilter: false, lastFetchedPage: -1 },
+        other:    { emailIds: [], nextPageToken: null, allLoadedForFilter: false, lastFetchedPage: -1 }
+    }
+};
+let currentActiveFilterType = 'priority'; // Tracks the currently displayed filter
+
 // Store current email details
 let currentEmail = null;
 let currentViewMode = 'desktop'; // Can be 'desktop' or 'mobile-list' or 'mobile-single'
@@ -101,35 +113,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup for load more button
     const loadMoreBtn = document.getElementById('load-more-btn');
     if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', () => fetchEmails(true)); // Pass a flag to indicate loading more
+        loadMoreBtn.addEventListener('click', () => fetchEmails(true));
+    }
+
+    // Tab filter logic
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all tabs
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked tab
+            button.classList.add('active');
+            // Fetch emails with the new filter
+            fetchEmails(false); // false indicates a fresh load, not loading more
+        });
+    });
+
+    // Event listener for the new filter checkbox
+    const peopleOnlyFilter = document.getElementById('people-only-filter');
+    if (peopleOnlyFilter) {
+        peopleOnlyFilter.addEventListener('change', () => {
+            fetchEmails(false); // False indicates a fresh load, not loading more
+        });
     }
 });
 
-let nextPageToken = null; // For Gmail API pagination
+let nextPageToken = null;
+let currentFilterType = 'priority'; // Default filter
 
 function fetchEmails(loadMore = false) {
     const desktopEmailList = document.getElementById('email-list');
     const mobileEmailList = document.getElementById('mobile-email-list');
     const loadMoreContainer = document.getElementById('load-more-emails-container');
+    
+    const activeTab = document.querySelector('.tab-button.active');
+    if (activeTab) {
+        currentFilterType = activeTab.dataset.filter;
+    }
+
+    if (!loadMore) {
+        nextPageToken = null;
+    }
 
     if (!loadMore) {
         if (desktopEmailList) desktopEmailList.innerHTML = '<li>Loading emails...</li>';
         if (mobileEmailList) mobileEmailList.innerHTML = '<li>Loading emails...</li>';
-        nextPageToken = null; // Reset token for a fresh load
     } else {
         document.getElementById('load-more-btn').textContent = 'Loading...';
         document.getElementById('load-more-btn').disabled = true;
     }
 
     let apiUrl = '/api/emails';
+    const params = new URLSearchParams();
+
     if (loadMore && nextPageToken) {
-        apiUrl += `?pageToken=${nextPageToken}`;
-    } else if (loadMore && !nextPageToken) {
-        console.log("No more pages to load.");
-        if (loadMoreContainer) loadMoreContainer.style.display = 'none'; // Hide button if no token
-        document.getElementById('load-more-btn').textContent = 'Load More Emails';
-        document.getElementById('load-more-btn').disabled = false;
-        return; // Nothing to load
+        params.append('pageToken', nextPageToken);
+    }
+
+    // Add filter_type parameter
+    if (currentFilterType) {
+        params.append('filter_type', currentFilterType);
+    }
+    
+    const queryString = params.toString();
+    if (queryString) {
+        apiUrl += `?${queryString}`;
     }
 
     fetch(apiUrl)

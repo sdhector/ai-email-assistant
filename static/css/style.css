@@ -826,3 +826,37 @@ or within the media query. Reviewing and ensuring their logic is captured.
         margin-right: auto; /* Push links to the right if brand is present */
     }
 }
+
+/* Ensure it's at the end or in an appropriate section */
+
+.email-tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6; /* Light grey border */
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1rem;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #495057; /* Muted text color */
+    border-bottom: 3px solid transparent; /* Placeholder for active state */
+    margin-right: 5px; /* Spacing between tabs */
+    transition: color 0.15s ease-in-out, border-bottom-color 0.15s ease-in-out;
+    -webkit-appearance: none; /* Remove default button styling on Safari/Chrome */
+    -moz-appearance: none; /* Remove default button styling on Firefox */
+    appearance: none; /* Remove default button styling */
+}
+
+.tab-button:hover {
+    color: #007bff; /* Primary color on hover */
+}
+
+.tab-button.active {
+    color: #007bff; /* Primary color for active tab */
+    border-bottom-color: #007bff; /* Blue underline for active tab */
+    font-weight: 600;
+}

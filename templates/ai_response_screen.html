@@ -4,49 +4,105 @@
 
 {% block content %}
 <h1>AI Response Screen</h1>
-<!-- Main container for the 2x2 grid -->
-<div class="response-grid-container" style="display: flex; flex-direction: row; gap: 15px; height: 80vh;">
 
-    <!-- Left Column (contains top-left and bottom-left cells) -->
-    <div class="grid-column" style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
-        <!-- Top-Left Cell: Emails List -->
-        <div class="grid-cell emails-panel-container" style="flex: 1; border: 1px solid #ddd; padding: 10px; display: flex; flex-direction: column; overflow-y: auto;">
-            <h2>Emails</h2>
-            <ul id="email-list" style="flex-grow: 1; overflow-y: auto; list-style-type: none; padding-left: 0; margin-top: 5px;"></ul>
-        </div>
-        <!-- Bottom-Left Cell: Selected Email Content -->
-        <div class="grid-cell selected-email-container" style="flex: 1; border: 1px solid #ddd; padding: 10px; display: flex; flex-direction: column; overflow-y: auto;">
-            <h2>Selected Email</h2>
-            <div id="selected-email-header" style="margin-bottom: 5px;"></div> 
-            <!-- Toggle button will be inserted here by JS if needed, or place it consistently -->
-            <div id="email-content-view" style="flex-grow: 1; display: flex; flex-direction: column;">
-                <iframe id="email-html-display" style="width: 100%; flex-grow: 1; border: 1px solid #ccc; display: none;"></iframe>
-                <pre id="email-plain-display" style="white-space: pre-wrap; word-wrap: break-word; border: 1px solid #ccc; padding: 5px; display: none; flex-grow: 1; overflow-y: auto;"></pre>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right Column (contains top-right and bottom-right cells) -->
-    <div class="grid-column" style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
-        <!-- Top-Right Cell: AI Proposed Response -->
-        <div class="grid-cell ai-response-panel-container" style="flex: 1; border: 1px solid #ddd; padding: 10px; display: flex; flex-direction: column;">
-            <h2>AI Proposed Response</h2>
-            <textarea id="ai-response-area" style="width: 100%; flex-grow: 1; box-sizing: border-box; margin-top: 5px;"></textarea>
-            <div class="action-buttons" style="margin-top: 10px;">
-                <button id="approve-button">Approve & Send</button>
-                <button id="delete-button" style="margin-left: 10px; background-color: #f44336; color: white;">Delete Email</button>
-            </div>
-        </div>
-        <!-- Bottom-Right Cell: Chatbot Interface -->
-        <div class="grid-cell chatbot-interface-container" style="flex: 1; border: 1px solid #ddd; padding: 10px; display: flex; flex-direction: column;">
-            <h3>Adjust Response</h3>
-            <div id="chatbot-history" style="flex-basis: 100px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-bottom: 5px; flex-grow: 0; flex-shrink: 0;"></div>
-            <textarea id="chatbot-input" placeholder="Your instructions..." style="width: 100%; flex-grow: 1; box-sizing: border-box; margin-top: 5px;"></textarea>
-            <button id="chatbot-submit" style="margin-top: 5px;">Submit Instructions</button>
-        </div>
-    </div>
-
+<!-- Tab Filters -->
+<div class="email-tabs">
+    <button class="tab-button active" data-filter="priority">
+        Priority
+    </button>
+    <button class="tab-button" data-filter="other">
+        Other
+    </button>
 </div>
+
+<!-- Mobile First Email List View -->
+<div class="mobile-email-list-container">
+    <h2>Emails</h2>
+    <ul id="mobile-email-list"></ul>
+    <div id="load-more-emails-container">
+        <button id="load-more-btn">Load More Emails</button>
+    </div>
+</div>
+
+<!-- Original Desktop 2x2 Grid -->
+<div class="response-grid-container">
+    <div class="grid-column">
+        <div class="grid-cell emails-panel-container desktop-email-list-panel">
+            <h2>Emails (Desktop)</h2>
+            <ul id="email-list"></ul>
+        </div>
+        <div class="grid-cell selected-email-container">
+            <h2>Selected Email</h2>
+            <div id="selected-email-header"></div>
+            <button id="toggle-email-view">Toggle View</button>
+            <div id="email-content-view">
+                <iframe id="email-html-display"></iframe>
+                <pre id="email-plain-display"></pre>
+            </div>
+        </div>
+    </div>
+    <div class="grid-column">
+        <div class="grid-cell ai-response-panel-container">
+            <h2>AI Proposed Response</h2>
+            <textarea id="ai-response-area"></textarea>
+            <div class="action-buttons">
+                <button id="approve-button">Approve & Send</button>
+                <button id="delete-button">Delete Email</button>
+            </div>
+        </div>
+        <div class="grid-cell chatbot-interface-container">
+            <h3>Adjust Response</h3>
+            <div id="chatbot-history"></div>
+            <textarea id="chatbot-input" placeholder="Your instructions..."></textarea>
+            <button id="chatbot-submit">Submit Instructions</button>
+        </div>
+    </div>
+</div>
+
+<!-- Container for Single Email View (Mobile) -->
+<div class="mobile-single-email-view-container">
+    <div class="mobile-single-email-top-bar">
+        <button id="mobile-back-to-list-btn">Back</button>
+        <h3>Email Details</h3>
+        <div class="mobile-top-actions">
+            <button id="mobile-reply-btn">Reply</button>
+            <button id="mobile-delete-btn">Delete</button>
+            <button id="mobile-add-to-calendar-btn" title="Add to Calendar (Placeholder)">🗓️</button>
+            <button id="mobile-add-to-task-btn" title="Add to Tasks (Placeholder)">📝</button>
+        </div>
+    </div>
+
+    <div class="mobile-main-content-area">
+        <div class="mobile-reply-interface-wrapper">
+            
+            <div class="mobile-reply-section-b"> <!-- Box B: Title -->
+                <h4>Compose Reply:</h4>
+            </div>
+
+            <div class="mobile-reply-section-c"> <!-- Box C: AI Suggestion Textarea -->
+                <textarea id="mobile-ai-response-area" placeholder="AI-suggested reply..."></textarea>
+            </div>
+
+            <div class="mobile-reply-section-d"> <!-- Box D: User Instructions -->
+                <textarea id="mobile-user-instructions-input" placeholder="Your instructions to adjust the reply..."></textarea>
+            </div>
+            
+            <!-- Consolidated Actions Bar -->
+            <div class="mobile-reply-consolidated-actions">
+                <button id="mobile-adjust-reply-btn">Adjust</button>
+                <button id="mobile-send-reply-btn">Send</button>
+                <button id="mobile-cancel-reply-btn">Cancel</button>
+            </div>
+        </div>
+
+        <div class="mobile-single-email-content-display">
+            <div id="mobile-selected-email-header"></div>
+            <iframe id="mobile-email-html-display"></iframe>
+            <pre id="mobile-email-plain-display"></pre>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts_extra %}
