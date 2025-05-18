@@ -11,8 +11,21 @@ nav {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid #dee2e6;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    display: flex; /* For better alignment of nav items */
+    position: relative; /* For positioning the mobile menu if it overlays */
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between; /* Pushes brand and hamburger to ends */
     align-items: center;
+    width: 100%;
+}
+
+.nav-brand {
+    text-decoration: none;
+    color: #343a40; /* Darker color for brand */
+    font-weight: bold;
+    font-size: 1.2rem;
 }
 
 nav a {
@@ -20,8 +33,9 @@ nav a {
     text-decoration: none;
     color: #007bff; /* Primary blue for links */
     font-weight: 500;
-    padding: 0.5rem 0;
+    padding: 0.75rem 1rem; /* Increased padding for better touch targets */
     transition: color 0.15s ease-in-out;
+    display: inline-block; /* Ensures padding is applied correctly */
 }
 
 nav a:hover {
@@ -446,7 +460,7 @@ textarea {
 
 .mobile-reply-consolidated-actions button {
     flex: 1 1 0;
-    padding: 8px 5px;
+    padding: 8px 10px; /* Increased horizontal padding */
     font-size: 0.9em;
     border-radius: 4px;
     /* Basic button styles are already applied. Ensure they are sufficient for touch. */
@@ -708,3 +722,107 @@ or within the media query. Reviewing and ensuring their logic is captured.
 
 /* Final check for .mobile-reply-consolidated-actions which seems correct */
 /* .mobile-reply-consolidated-actions button styles are also looking fine */
+
+.hamburger-menu {
+    display: none; /* Hidden by default, shown on mobile */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem; /* Make it easier to tap */
+    z-index: 1001; /* Above nav-links if it overlays */
+}
+
+.hamburger-menu span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background-color: #343a40; /* Hamburger icon color */
+    margin: 5px 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Styling for the .nav-links container */
+.nav-links {
+    display: none; /* Hidden by default on mobile */
+    flex-direction: column; /* Stack links vertically */
+    position: absolute; /* Position it absolutely for overlay effect */
+    top: 100%; /* Position below the navbar */
+    left: 0;
+    right: 0;
+    background-color: #ffffff; /* Same as navbar background */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Similar shadow */
+    padding: 1rem 0; /* Padding for the dropdown */
+    z-index: 1000;
+}
+
+.nav-links.active {
+    display: flex; /* Show when active */
+}
+
+.nav-links a {
+    width: 100%; /* Make links take full width */
+    padding: 0.75rem 1.5rem; /* Adjust padding for vertical menu */
+    box-sizing: border-box;
+    border-bottom: 1px solid #f1f3f5; /* Separator for links */
+}
+
+.nav-links a:last-child {
+    border-bottom: none;
+}
+
+/* Mobile-first: Hamburger menu visible, nav-links hidden */
+/* Using a max-width breakpoint for when hamburger should appear */
+@media (max-width: 767px) { /* Breakpoint for hamburger menu */
+    .hamburger-menu {
+        display: block;
+    }
+
+    .nav-container {
+        /* justify-content: space-between; is already set */
+    }
+
+    .nav-links {
+        /* display: none; is default */
+        /* flex-direction, position, top, left, right, background, shadow, padding, z-index already set */
+    }
+
+    /* Hide the desktop links if they were somehow visible or just to be explicit */
+    /* This rule might be too broad if .nav-links is also used for desktop somehow. */
+    /* Let's assume .nav-links is primarily for the mobile dropdown. */
+    /* Default nav a styles will apply, but we overrode padding in .nav-links a */
+    nav:not(.nav-container) > a { /* Attempt to hide direct child links of nav if not in container, if that pattern exists */
+         /* display: none; */ /* Commenting out: Be careful not to hide brand if it's an 'a' directly under nav */
+    }
+}
+
+
+/* Styles for desktop (tablet and larger) */
+@media (min-width: 768px) {
+    .hamburger-menu {
+        display: none; /* Hide hamburger on desktop */
+    }
+
+    .nav-container {
+        /* Default flex behavior is fine, or adjust as needed e.g. remove space-between if brand is not present */
+    }
+
+    .nav-links {
+        display: flex !important; /* Override mobile hiding. Use !important carefully, but needed here due to JS toggle */
+        flex-direction: row; /* Links in a row */
+        position: static; /* Override absolute positioning */
+        box-shadow: none;
+        padding: 0;
+        background-color: transparent;
+        z-index: auto;
+    }
+
+    .nav-links a {
+        width: auto; /* Reset width */
+        padding: 0.75rem 1rem; /* Restore original or desired desktop padding */
+        border-bottom: none; /* No borders for horizontal links */
+    }
+
+    .nav-brand {
+        margin-right: auto; /* Push links to the right if brand is present */
+    }
+}
