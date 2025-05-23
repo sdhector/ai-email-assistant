@@ -11,8 +11,21 @@ nav {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid #dee2e6;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    display: flex; /* For better alignment of nav items */
+    position: relative; /* For positioning the mobile menu if it overlays */
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between; /* Pushes brand and hamburger to ends */
     align-items: center;
+    width: 100%;
+}
+
+.nav-brand {
+    text-decoration: none;
+    color: #343a40; /* Darker color for brand */
+    font-weight: bold;
+    font-size: 1.2rem;
 }
 
 nav a {
@@ -20,8 +33,9 @@ nav a {
     text-decoration: none;
     color: #007bff; /* Primary blue for links */
     font-weight: 500;
-    padding: 0.5rem 0;
+    padding: 0.75rem 1rem; /* Increased padding for better touch targets */
     transition: color 0.15s ease-in-out;
+    display: inline-block; /* Ensures padding is applied correctly */
 }
 
 nav a:hover {
@@ -83,22 +97,59 @@ textarea {
     resize: vertical; /* Allow vertical resize, restrict horizontal */
 }
 
-/* AI Response Screen Specific - existing styles to be reviewed/merged */
-/* .response-container - this class name is now on ai_response_screen.html for the 2x2 grid parent */
-/* The old .emails-panel, .ai-response-panel are now .grid-cell subclasses */
+/* AI Response Screen Specific - Default to mobile, desktop grid hidden */
+.response-grid-container {
+    display: none; /* Hidden by default for mobile-first */
+}
 
-/* We will style .grid-column and .grid-cell elements from HTML as they have inline styles for flex structure */
-/* However, we can style the *content* of those cells */
+.mobile-email-list-container {
+    display: block; /* Shown by default for mobile-first */
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
 
+/* Grid cells styling - will apply when grid becomes visible on larger screens */
 .grid-cell {
     background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    /* padding is already inline, but could be standardized here if inline is removed */
+    border: 1px solid #ddd;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
 }
 
-#email-list li,
-#action-items-ul li { /* Targeting both action item list and email list */
+/* Styling for desktop email list, applied only when .response-grid-container is visible */
+#email-list li {
+    cursor: pointer;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f3f5;
+    transition: background-color 0.15s ease-in-out;
+    list-style-type: none;
+}
+
+#email-list li:last-child {
+    border-bottom: none;
+}
+
+#email-list li:hover {
+    background-color: #e9ecef;
+}
+
+#email-list li.selected {
+    background-color: #007bff;
+    color: white;
+    border-color: #0069d9;
+}
+
+#email-list li.selected small { /* This selector might need to be adjusted if small is not used or relevant in desktop list */
+    color: #e0e0e0;
+}
+
+
+/* Action Items List (shared style, ensure it works for mobile first) */
+#action-items-ul li {
     cursor: pointer;
     padding: 8px 12px;
     border-bottom: 1px solid #f1f3f5; /* Lighter border for list items */
@@ -106,33 +157,30 @@ textarea {
     list-style-type: none; /* Remove default bullets */
 }
 
-#email-list li:last-child,
 #action-items-ul li:last-child {
     border-bottom: none;
 }
 
-#email-list li:hover,
 #action-items-ul li:hover {
     background-color: #e9ecef; /* Light gray hover for list items */
 }
 
-#email-list li.selected, /* Assuming a .selected class might be added by JS for highlighting */
 #action-items-ul li.selected {
     background-color: #007bff; /* Blue background for selected */
     color: white;
-    border-color: #0069d9;
+    border-color: #0069d9; /* Ensure this is visible on mobile */
 }
 
-#email-list li.selected small,
 #action-items-ul li.selected small {
     color: #e0e0e0; /* Lighter text for sub-info on selected item */
 }
 
-
-/* Chatbot history specific styling */
+/* Chatbot history specific styling (applies to both views if elements are present) */
 #chatbot-history {
     background-color: #f8f9fa; /* Slightly different background for history */
     border-radius: 4px;
+    /* Sizing and overflow for desktop will be in media query */
+    /* For mobile, if it's part of a different layout, its container will manage size */
 }
 
 #chatbot-history div {
@@ -143,46 +191,672 @@ textarea {
     border-bottom: none;
 }
 
-
-/* Action Items Screen Specific - old styles to be reviewed */
-/* #action-items-list div - this was old structure, now it's #action-items-ul li */
-
-
 /* Specific button styles if needed */
-#delete-button {
+#delete-button { /* This is likely the desktop delete button */
     background-color: #dc3545; /* Red for delete */
 }
 #delete-button:hover {
     background-color: #c82333;
 }
+/* Mobile delete button might have its own ID or class if styled differently, or share base button styles */
 
-/* Knowledge Screen Specific - textarea already covered by general textarea style */
 
-/* Utility classes (optional, but good for modern design) */
+/* Utility classes */
 .error {
     color: #dc3545; /* Red for error messages */
     font-weight: bold;
 }
 
-/* Ensure iframe and pre take up space correctly - already handled by inline flex-grow */
-#email-html-display, #email-plain-display,
-#action-item-email-html-display, #action-item-email-plain-display {
+/* Display elements, general rules */
+#email-html-display, #email-plain-display, /* Desktop views */
+#action-item-email-html-display, #action-item-email-plain-display, /* Action item views */
+#mobile-email-html-display, #mobile-email-plain-display /* Mobile views */ {
     background-color: #fff; /* Ensure background for these elements */
+    width: 100%;
+    flex-grow: 1;
+    border: 1px solid #ccc; /* Default border */
+    overflow-y: auto; /* Enable scrolling on the content viewers themselves */
+    min-height: 0; /* Allow shrinking in flex parent */
 }
 
-/* Clear default padding from ul if it was causing issues with panel padding */
-#email-list, #action-items-ul {
-    padding-left: 0; /* Remove default user-agent padding for ul */
+/* Initially hide desktop specific content viewers if they are different elements */
+#email-html-display, #email-plain-display {
+    display: none;
 }
 
-#chatbot-interface {
+/* Mobile content viewers are controlled by JS based on active state */
+#mobile-email-html-display, #mobile-email-plain-display {
+    display: none; /* JS toggles */
+    border: none; /* Clean look for iframe in mobile single view */
+}
+#mobile-email-plain-display {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+
+/* Action item content viewers */
+#action-item-email-html-display, #action-item-email-plain-display {
+    display: none; /* JS toggles */
+}
+
+
+/* Clear default padding from ul */
+#email-list, #action-items-ul, #mobile-email-list {
+    padding-left: 0;
+    margin: 0; /* Reset margin for lists too */
+}
+
+/* Desktop chatbot interface - specific sizing in media query */
+#chatbot-interface { /* This ID seems to be a wrapper for desktop */
     margin-top: 20px;
     border-top: 1px dashed #ccc;
     padding-top: 15px;
 }
 
-/* Action Items Screen Specific */
-#action-items-list div {
-    border-bottom: 1px solid #eee;
-    padding: 10px 0;
-} 
+
+/* Action Items Screen - Mobile First (Stacking) */
+.action-items-container {
+    display: flex;
+    flex-direction: column; /* Stack by default for mobile */
+    gap: 15px; /* Adjust gap for mobile */
+    /* height: auto; Let content define height on mobile or manage with viewport units if desired */
+}
+
+.action-items-list-panel,
+.action-item-email-panel {
+    flex: 1; /* Allow them to grow if space, but stacking means width is primary concern */
+    border: 1px solid #ddd;
+    padding: 10px;
+    overflow-y: auto; /* Individual scrolling for panels */
+    min-height: 200px; /* Example min-height for mobile, adjust as needed */
+}
+
+.action-item-email-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+#action-item-email-content-view {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* --- Mobile View Styles (already mostly mobile-first in structure) --- */
+
+#mobile-email-list li {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    background-color: #fff;
+}
+
+#mobile-email-list li:hover {
+    background-color: #f5f5f5;
+}
+
+#mobile-email-list li .email-snippet-sender {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.95em;
+    margin-bottom: 3px;
+    display: block;
+}
+
+#mobile-email-list li .email-snippet-subject {
+    color: #444;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#mobile-email-list li .email-snippet-body {
+    color: #777;
+    font-size: 0.85em;
+    margin-bottom: 5px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#mobile-email-list li .email-snippet-date {
+    font-size: 0.8em;
+    color: #999;
+    float: right;
+}
+
+#mobile-email-list li::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+.mobile-single-email-view-container {
+    /* display: none; JS adds .active to show, so this can be default */
+    /* If .active is not present, it should be hidden. Let's ensure that. */
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: #fff;
+    z-index: 1000;
+    flex-direction: column;
+}
+.mobile-single-email-view-container.active {
+    display: flex !important; /* JS adds .active to show */
+}
+
+
+.mobile-single-email-top-bar {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background-color: #f8f9fa;
+}
+
+.mobile-single-email-top-bar h3 {
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1.1em;
+}
+
+.mobile-top-actions {
+    display: flex;
+    flex-shrink: 0;
+}
+.mobile-top-actions button {
+    margin-left: 5px;
+    /* Ensure mobile buttons are large enough for touch */
+    padding: 8px 10px; /* Adjust padding for touch */
+    font-size: 0.9em; /* Adjust font size if needed */
+}
+/* Placeholder buttons already have emojis, ensure they are adequately sized */
+#mobile-add-to-calendar-btn, #mobile-add-to-task-btn {
+    min-width: 44px; /* Example to ensure touch target */
+    min-height: 44px;
+    font-size: 1.2em; /* Make emoji bigger */
+}
+
+
+.mobile-main-content-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.mobile-reply-interface-wrapper {
+    display: none; /* JS toggles this with .active-reply */
+    flex-direction: column;
+    flex-shrink: 0;
+    background-color: #f0f0f0;
+}
+
+.mobile-reply-interface-wrapper.active-reply {
+    display: flex !important;
+    flex-basis: 50%; /* Takes 50% of .mobile-main-content-area height */
+}
+
+.mobile-reply-section-b,
+.mobile-reply-section-c,
+.mobile-reply-section-d,
+.mobile-reply-consolidated-actions { /* Renamed from .mobile-reply-final-actions */
+    display: flex;
+    flex-direction: column;
+    padding: 5px 10px;
+    box-sizing: border-box;
+}
+
+.mobile-reply-section-b {
+    flex-basis: 10%;
+    justify-content: center;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.mobile-reply-section-b h4 {
+    margin: 0;
+    font-size: 1em;
+}
+
+.mobile-reply-section-c {
+    flex-basis: 40%;
+}
+
+#mobile-ai-response-area { /* Already has general textarea styles, this is for specific context */
+    height: 100%;
+    resize: none;
+}
+
+.mobile-reply-section-d {
+    flex-basis: 35%;
+}
+
+#mobile-user-instructions-input { /* Already has general textarea styles */
+    height: 100%;
+    resize: none;
+}
+
+.mobile-reply-consolidated-actions {
+    flex-basis: 15%;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 8px 5px;
+    gap: 8px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.mobile-reply-consolidated-actions button {
+    flex: 1 1 0;
+    padding: 8px 10px; /* Increased horizontal padding */
+    font-size: 0.9em;
+    border-radius: 4px;
+    /* Basic button styles are already applied. Ensure they are sufficient for touch. */
+    min-height: 44px; /* Ensure buttons are tall enough */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+
+.mobile-single-email-content-display {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 10px;
+    min-height: 0;
+}
+
+#mobile-selected-email-header {
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+/* Styles when force-mobile-active is on the body - these might become less critical if JS relies on media queries for view logic */
+body.force-mobile-active .response-grid-container {
+    display: none !important;
+}
+body.force-mobile-active .mobile-email-list-container {
+     /* display: block; /* Handled by default now */
+}
+body.force-mobile-active .mobile-single-email-view-container.active {
+    display: flex !important;
+}
+body.force-mobile-active .mobile-single-email-view-container:not(.active) {
+    display: none !important;
+}
+
+
+/* --- DESKTOP & TABLET STYLES --- */
+@media (min-width: 768px) {
+    /* Hide mobile-specific list and single view containers */
+    body:not(.force-mobile-active) .mobile-email-list-container {
+        display: none !important;
+    }
+
+    body:not(.force-mobile-active) .mobile-single-email-view-container { /* Also hide the full screen mobile view */
+        display: none !important;
+    }
+
+    /* Show desktop grid */
+    body:not(.force-mobile-active) .response-grid-container {
+        display: flex !important; /* Use flex for the two-column layout */
+        gap: 20px; /* Spacing between columns */
+    }
+
+    .grid-column {
+        flex: 1; /* Each column takes equal space */
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /* Spacing between cells in a column */
+    }
+
+    .grid-cell {
+        /* Base styles for grid-cell are already defined */
+        /* Desktop specific sizing or overrides can go here if needed */
+        min-height: 300px; /* Example: give cells a min height on desktop */
+    }
+    
+    .emails-panel-container,
+    .selected-email-container,
+    .ai-response-panel-container,
+    .chatbot-interface-container {
+        flex: 1; /* All cells take equal space in their column by default */
+        min-height: 0; /* Crucial for allowing flex items to shrink */
+        overflow-y: hidden; /* Prevent these panels from scrolling; their content will scroll */
+    }
+    
+    #email-list {
+        overflow-y: auto; /* Allow email list to scroll */
+        max-height: calc(100% - 30px); /* Example: Adjust based on h2 height */
+    }
+
+    .selected-email-container {
+        overflow-y: hidden; /* its children iframe/pre will scroll */
+    }
+
+    #selected-email-header {
+        margin-bottom: 5px;
+        flex-shrink: 0; /* Don't let header shrink */
+    }
+
+    #email-content-view { /* Container for iframe/pre */
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow-y: hidden;
+    }
+
+    /* Desktop specific display for content viewers */
+    #email-html-display, #email-plain-display {
+        /* display: none; /* JS will toggle one of these to block */
+        /* Other base styles are already set (width, flex-grow, border, overflow) */
+    }
+    
+    #toggle-email-view { /* Button to toggle html/plain for desktop */
+        margin-bottom: 5px;
+        align-self: flex-start; /* Position button nicely */
+    }
+
+    #ai-response-area { /* Desktop AI response textarea */
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 5px;
+        min-height: 150px; /* Larger min-height for desktop */
+        flex-grow: 1; /* Allow it to take available space in its flex cell */
+        /* height: 100%; Is already there */
+        overflow-y: auto;
+        resize: vertical;
+    }
+
+    .action-buttons { /* Container for approve/delete buttons on desktop */
+        margin-top: 10px;
+        flex-shrink: 0;
+        display: flex;
+        gap: 10px; /* Space out buttons */
+    }
+    .action-buttons button {
+        flex-grow: 1; /* Make buttons share space if desired */
+    }
+
+    #chatbot-history { /* Desktop chatbot history */
+        max-height: 200px; /* Larger max-height for desktop */
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 5px;
+        margin-bottom: 5px;
+        flex-shrink: 0;
+    }
+
+    #chatbot-input { /* Desktop chatbot input textarea */
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 5px;
+        min-height: 100px; /* Larger min-height for desktop */
+        flex-grow: 1; /* Allow it to take available space */
+        overflow-y: auto;
+        resize: vertical;
+    }
+
+    #chatbot-submit { /* Desktop submit button */
+        margin-top: 5px;
+        flex-shrink: 0;
+        align-self: flex-start; /* Or flex-end, or stretch */
+    }
+
+    /* Action Items Screen - Desktop Layout */
+    .action-items-container {
+        flex-direction: row; /* Side-by-side for desktop */
+        gap: 20px;
+        height: 70vh; /* Restore fixed height for desktop if desired */
+    }
+    .action-items-list-panel {
+        flex: 1;
+        min-height: 0; /* Reset min-height for flex behavior */
+    }
+    .action-item-email-panel {
+        flex: 2;
+        min-height: 0; /* Reset min-height for flex behavior */
+    }
+}
+
+/* Further refine styling of existing grid-cells, removing inline styles where possible */
+/* These were mostly moved into the media query or handled by mobile-first base styles */
+
+/*
+The following styles were somewhat redundant or better handled by the mobile-first structure
+or within the media query. Reviewing and ensuring their logic is captured.
+
+.emails-panel-container,
+.selected-email-container,
+.ai-response-panel-container,
+.chatbot-interface-container {
+    flex: 1; // Covered by .grid-cell in media query context, or mobile equivalent for mobile
+    min-height: 0; // Good practice, applied where needed
+    overflow-y: hidden; // Good for panels, applied where needed
+}
+
+#selected-email-header { // Covered
+    margin-bottom: 5px;
+}
+
+#email-content-view { // Covered
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: hidden;
+}
+
+#email-html-display, #email-plain-display { // Covered
+    width: 100%;
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    overflow-y: auto;
+}
+
+#ai-response-area { // Covered by base textarea and media query specifics
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px;
+    min-height: 70px;
+    height: 100%;
+    overflow-y: auto;
+    resize: vertical;
+}
+
+.action-buttons { // Covered
+    margin-top: 10px;
+    flex-shrink: 0;
+}
+
+#chatbot-history { // Covered by base and media query specifics
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-bottom: 5px;
+    flex-shrink: 0;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+#chatbot-history div { // Covered
+    padding: 6px 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+#chatbot-history div:last-child {
+    border-bottom: none;
+}
+
+#chatbot-input { // Covered by base textarea and media query specifics
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px;
+    min-height: 70px;
+    height: 100%;
+    overflow-y: auto;
+    resize: vertical;
+}
+
+#chatbot-submit { // Covered
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+*/
+
+/* Final check for .mobile-reply-consolidated-actions which seems correct */
+/* .mobile-reply-consolidated-actions button styles are also looking fine */
+
+.hamburger-menu {
+    display: none; /* Hidden by default, shown on mobile */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem; /* Make it easier to tap */
+    z-index: 1001; /* Above nav-links if it overlays */
+}
+
+.hamburger-menu span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background-color: #343a40; /* Hamburger icon color */
+    margin: 5px 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Styling for the .nav-links container */
+.nav-links {
+    display: none; /* Hidden by default on mobile */
+    flex-direction: column; /* Stack links vertically */
+    position: absolute; /* Position it absolutely for overlay effect */
+    top: 100%; /* Position below the navbar */
+    left: 0;
+    right: 0;
+    background-color: #ffffff; /* Same as navbar background */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Similar shadow */
+    padding: 1rem 0; /* Padding for the dropdown */
+    z-index: 1000;
+}
+
+.nav-links.active {
+    display: flex; /* Show when active */
+}
+
+.nav-links a {
+    width: 100%; /* Make links take full width */
+    padding: 0.75rem 1.5rem; /* Adjust padding for vertical menu */
+    box-sizing: border-box;
+    border-bottom: 1px solid #f1f3f5; /* Separator for links */
+}
+
+.nav-links a:last-child {
+    border-bottom: none;
+}
+
+/* Mobile-first: Hamburger menu visible, nav-links hidden */
+/* Using a max-width breakpoint for when hamburger should appear */
+@media (max-width: 767px) { /* Breakpoint for hamburger menu */
+    .hamburger-menu {
+        display: block;
+    }
+
+    .nav-container {
+        /* justify-content: space-between; is already set */
+    }
+
+    .nav-links {
+        /* display: none; is default */
+        /* flex-direction, position, top, left, right, background, shadow, padding, z-index already set */
+    }
+
+    /* Hide the desktop links if they were somehow visible or just to be explicit */
+    /* This rule might be too broad if .nav-links is also used for desktop somehow. */
+    /* Let's assume .nav-links is primarily for the mobile dropdown. */
+    /* Default nav a styles will apply, but we overrode padding in .nav-links a */
+    nav:not(.nav-container) > a { /* Attempt to hide direct child links of nav if not in container, if that pattern exists */
+         /* display: none; */ /* Commenting out: Be careful not to hide brand if it's an 'a' directly under nav */
+    }
+}
+
+
+/* Styles for desktop (tablet and larger) */
+@media (min-width: 768px) {
+    .hamburger-menu {
+        display: none; /* Hide hamburger on desktop */
+    }
+
+    .nav-container {
+        /* Default flex behavior is fine, or adjust as needed e.g. remove space-between if brand is not present */
+    }
+
+    .nav-links {
+        display: flex !important; /* Override mobile hiding. Use !important carefully, but needed here due to JS toggle */
+        flex-direction: row; /* Links in a row */
+        position: static; /* Override absolute positioning */
+        box-shadow: none;
+        padding: 0;
+        background-color: transparent;
+        z-index: auto;
+    }
+
+    .nav-links a {
+        width: auto; /* Reset width */
+        padding: 0.75rem 1rem; /* Restore original or desired desktop padding */
+        border-bottom: none; /* No borders for horizontal links */
+    }
+
+    .nav-brand {
+        margin-right: auto; /* Push links to the right if brand is present */
+    }
+}
+
+/* Ensure it's at the end or in an appropriate section */
+
+.email-tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6; /* Light grey border */
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1rem;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #495057; /* Muted text color */
+    border-bottom: 3px solid transparent; /* Placeholder for active state */
+    margin-right: 5px; /* Spacing between tabs */
+    transition: color 0.15s ease-in-out, border-bottom-color 0.15s ease-in-out;
+    -webkit-appearance: none; /* Remove default button styling on Safari/Chrome */
+    -moz-appearance: none; /* Remove default button styling on Firefox */
+    appearance: none; /* Remove default button styling */
+}
+
+.tab-button:hover {
+    color: #007bff; /* Primary color on hover */
+}
+
+.tab-button.active {
+    color: #007bff; /* Primary color for active tab */
+    border-bottom-color: #007bff; /* Blue underline for active tab */
+    font-weight: 600;
+}
